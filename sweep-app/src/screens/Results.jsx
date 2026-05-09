@@ -38,6 +38,10 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups, o
   const hintRef = useRef(null);
   const hintTriggerRef = useRef(null);
 
+  const [perksOpen, setPerksOpen] = useState(false);
+  const perksRef = useRef(null);
+  const perksTriggerRef = useRef(null);
+
   // Click anywhere outside the popover (and the trigger button) to dismiss.
   useEffect(() => {
     if (!hintOpen) return;
@@ -49,6 +53,17 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups, o
     document.addEventListener("pointerdown", onPointerDown);
     return () => document.removeEventListener("pointerdown", onPointerDown);
   }, [hintOpen]);
+
+  useEffect(() => {
+    if (!perksOpen) return;
+    const onPointerDown = (e) => {
+      const inPopover = perksRef.current?.contains(e.target);
+      const inTrigger = perksTriggerRef.current?.contains(e.target);
+      if (!inPopover && !inTrigger) setPerksOpen(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [perksOpen]);
 
   const allGroups = useMemo(() => summarizeGroups(scan.dust, ALL_GROUP_IDS), [scan.dust]);
   const presentGroupIds = useMemo(() => allGroups.map((g) => g.id), [allGroups]);
@@ -392,7 +407,7 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups, o
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.6, ease }}
-          className="mt-4"
+          className="mt-4 relative"
         >
           <div className="flex items-center justify-between mb-2 px-1">
             <div className="flex items-center gap-2">
@@ -411,9 +426,21 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups, o
               </button>
             </div>
             {asset.id === "sweep" && (
-              <span className="text-[10px] uppercase tracking-wider text-magenta font-bold">
-                lowest fee
-              </span>
+              <button
+                ref={perksTriggerRef}
+                onClick={() => { haptic.light?.(); setPerksOpen((v) => !v); }}
+                className="text-[10px] uppercase tracking-wider font-bold flex items-center gap-1"
+                title="Tap to see SWEEP holder benefits"
+              >
+                <span className="text-magenta">lowest fee</span>
+                <span
+                  className="text-magenta opacity-70"
+                  style={{ borderBottom: "1px dashed rgba(255,79,216,0.5)", paddingBottom: 1 }}
+                >
+                  + perks
+                </span>
+                <Info size={10} className="text-magenta opacity-70" />
+              </button>
             )}
           </div>
           <div className="grid grid-cols-3 gap-2">
@@ -454,7 +481,7 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups, o
                         opacity: isSelected ? 1 : 0.55,
                       }}
                     >
-                      {a.symbol === "$SWEEP" ? "✦" : a.symbol[0]}
+                      {a.symbol === "SWEEP" ? "✦" : a.symbol[0]}
                     </div>
                   )}
                   <div className="text-[12px] font-display font-bold text-text-primary leading-none">
@@ -498,6 +525,54 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups, o
               );
             })}
           </div>
+          {/* SWEEP perks popover — appears when user taps the
+              "+ PERKS" badge above. Same content as the advanced-mode
+              benefits panel, just delivered as a tooltip. */}
+          <AnimatePresence>
+            {perksOpen && asset.id === "sweep" && asset.benefits && (
+              <motion.div
+                ref={perksRef}
+                initial={{ opacity: 0, y: -6, scale: 0.96 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -6, scale: 0.96 }}
+                transition={{ duration: 0.22 }}
+                style={{
+                  position: "absolute",
+                  top: "calc(100% + 6px)",
+                  left: "50%",
+                  x: "-50%",
+                  width: "calc(100% - 8px)",
+                  zIndex: 40,
+                  background: "#161A26",
+                  border: "1px solid rgba(255,79,216,0.45)",
+                  boxShadow: "0 12px 32px rgba(0,0,0,0.75), 0 0 24px rgba(255,79,216,0.18)",
+                }}
+                className="rounded-md p-4"
+              >
+                <div className="flex items-center gap-2 mb-3">
+                  <Sparkles size={14} className="text-magenta" />
+                  <span className="text-[11px] uppercase tracking-[0.16em] font-bold text-magenta">
+                    SWEEP holder benefits
+                  </span>
+                </div>
+                <ul className="flex flex-col gap-2">
+                  {asset.benefits.map((b, i) => (
+                    <li key={i} className="flex items-start gap-2.5">
+                      <span className="text-magenta text-[14px] leading-none mt-0.5">{b.icon}</span>
+                      <div className="flex-1">
+                        <div className="text-[12px] font-display font-semibold text-text-primary leading-tight">
+                          {b.title}
+                        </div>
+                        <div className="text-[11px] text-text-secondary mt-0.5 leading-snug">
+                          {b.text}
+                        </div>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </motion.div>
 
         {/* SWEEP holder benefits — advanced mode only.
@@ -797,7 +872,7 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups, o
             hapticType="medium"
           >
             {asset.id === "sweep"
-              ? "Sweep into $SWEEP"
+              ? "Sweep into SWEEP"
               : asset.id === "sol"
               ? "Sweep into SOL"
               : "Clean · 1 signature"}

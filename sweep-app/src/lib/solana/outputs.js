@@ -41,7 +41,7 @@ export const OUTPUT_ASSETS = {
   },
   sweep: {
     id: "sweep",
-    symbol: "$SWEEP",
+    symbol: "SWEEP",
     name: "SWEEP",
     blurb: "Lowest fee + holder rewards.",
     mint: SWEEP_MINT,
@@ -53,8 +53,8 @@ export const OUTPUT_ASSETS = {
     displayDecimals: SWEEP_USD_REF >= 1 ? 2 : 0,
     benefits: [
       { icon: "✦", title: "Lowest fee", text: "3% vs 5% USDC — save 40% per sweep." },
-      { icon: "✧", title: "Bonus airdrops", text: "Eligible for monthly $SWEEP rewards based on volume." },
-      { icon: "◈", title: "Priority routing", text: "Jupiter route boost for $SWEEP holders." },
+      { icon: "✧", title: "Bonus airdrops", text: "Eligible for monthly SWEEP rewards based on volume." },
+      { icon: "◈", title: "Priority routing", text: "Jupiter route boost for SWEEP holders." },
       { icon: "◊", title: "Governance + staking", text: "Vote on dust threshold + earn yield (coming soon)." },
     ],
   },
