@@ -186,8 +186,10 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups, o
             <Info size={10} className="text-gold opacity-70" />
           </button>
 
-          {/* Hint popover — w-full parent + left-1/2 -translate-x-1/2
-              centers it on the screen, not on the tiny trigger button. */}
+          {/* Hint popover — Framer Motion's `motion.div` manages the
+              `transform` style directly, which clobbers Tailwind's
+              `-translate-x-1/2`. Centering via motion's own `x` prop
+              instead so they don't collide. */}
           <AnimatePresence>
             {hintOpen && (
               <motion.div
@@ -196,9 +198,14 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups, o
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: -4, scale: 0.96 }}
                 transition={{ duration: 0.2 }}
-                className="absolute left-1/2 -translate-x-1/2 z-40 text-[11px] text-text-secondary text-center max-w-[280px] w-[260px] leading-snug px-3 py-2 rounded-md"
+                className="text-[11px] text-text-secondary text-center leading-snug px-3 py-2 rounded-md"
                 style={{
+                  position: "absolute",
                   top: "calc(100% + 6px)",
+                  left: "50%",
+                  x: "-50%",                // motion-aware translateX
+                  width: 260,
+                  zIndex: 40,
                   background: "#161A26",
                   border: "1px solid rgba(255,210,122,0.35)",
                   boxShadow: "0 12px 32px rgba(0,0,0,0.75), 0 0 0 1px rgba(0,0,0,0.4)",
