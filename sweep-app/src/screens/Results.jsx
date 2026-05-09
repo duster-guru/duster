@@ -1,7 +1,7 @@
 import { useWallet } from "@solana/wallet-adapter-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowRight, Check, ChevronDown, ChevronUp, Info, PenLine, RefreshCw, Sparkles } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Particles from "../components/Particles";
 import CountUp from "../components/CountUp";
 import { GhostButton, HeroGlassCard, MicroLabel, PrimaryButton, TokenIcon } from "../components/UI";
@@ -35,6 +35,20 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups, o
     });
   };
   const [hintOpen, setHintOpen] = useState(false);
+  const hintRef = useRef(null);
+  const hintTriggerRef = useRef(null);
+
+  // Click anywhere outside the popover (and the trigger button) to dismiss.
+  useEffect(() => {
+    if (!hintOpen) return;
+    const onPointerDown = (e) => {
+      const inPopover = hintRef.current?.contains(e.target);
+      const inTrigger = hintTriggerRef.current?.contains(e.target);
+      if (!inPopover && !inTrigger) setHintOpen(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [hintOpen]);
 
   const allGroups = useMemo(() => summarizeGroups(scan.dust, ALL_GROUP_IDS), [scan.dust]);
   const presentGroupIds = useMemo(() => allGroups.map((g) => g.id), [allGroups]);
@@ -155,9 +169,10 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups, o
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.45, delay: 0.1, ease }}
-          className="relative flex items-center justify-center gap-1.5"
+          className="relative w-full flex items-center justify-center gap-1.5"
         >
           <button
+            ref={hintTriggerRef}
             onClick={() => { haptic.light?.(); setHintOpen((v) => !v); }}
             className="flex items-center gap-1"
             title={`Dust = tokens valued under $${DUST_THRESHOLD_USD}.`}
@@ -171,32 +186,27 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups, o
             <Info size={10} className="text-gold opacity-70" />
           </button>
 
-          {/* Hint popover — absolutely positioned, overlays the content
-              below without pushing the headline number down. Solid dark
-              background so the giant $X.XX number underneath doesn't
-              bleed through and make the hint unreadable. */}
+          {/* Hint popover — w-full parent + left-1/2 -translate-x-1/2
+              centers it on the screen, not on the tiny trigger button. */}
           <AnimatePresence>
             {hintOpen && (
               <motion.div
+                ref={hintRef}
                 initial={{ opacity: 0, y: -4, scale: 0.96 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: -4, scale: 0.96 }}
                 transition={{ duration: 0.2 }}
-                className="absolute left-1/2 -translate-x-1/2 z-40 text-[11px] text-text-secondary text-center max-w-[260px] leading-snug px-3 py-2 rounded-md cursor-pointer"
+                className="absolute left-1/2 -translate-x-1/2 z-40 text-[11px] text-text-secondary text-center max-w-[280px] w-[260px] leading-snug px-3 py-2 rounded-md"
                 style={{
                   top: "calc(100% + 6px)",
                   background: "#161A26",
                   border: "1px solid rgba(255,210,122,0.35)",
                   boxShadow: "0 12px 32px rgba(0,0,0,0.75), 0 0 0 1px rgba(0,0,0,0.4)",
                 }}
-                onClick={() => setHintOpen(false)}
               >
                 Dust = tokens valued under{" "}
                 <span className="text-gold font-semibold">${DUST_THRESHOLD_USD}</span>.
                 Anything above is a real position and skipped.
-                <div className="text-[9px] text-text-muted mt-1 opacity-70">
-                  tap to close
-                </div>
               </motion.div>
             )}
           </AnimatePresence>
