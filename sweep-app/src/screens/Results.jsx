@@ -172,7 +172,9 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups, o
           </button>
 
           {/* Hint popover — absolutely positioned, overlays the content
-              below without pushing the headline number down. */}
+              below without pushing the headline number down. Solid dark
+              background so the giant $X.XX number underneath doesn't
+              bleed through and make the hint unreadable. */}
           <AnimatePresence>
             {hintOpen && (
               <motion.div
@@ -180,12 +182,21 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups, o
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: -4, scale: 0.96 }}
                 transition={{ duration: 0.2 }}
-                className="absolute left-1/2 -translate-x-1/2 z-40 text-[11px] text-text-muted text-center max-w-[280px] leading-snug px-3 py-2 rounded-md glass-strong"
-                style={{ top: "calc(100% + 6px)", boxShadow: "0 8px 24px rgba(0,0,0,0.6)" }}
+                className="absolute left-1/2 -translate-x-1/2 z-40 text-[11px] text-text-secondary text-center max-w-[260px] leading-snug px-3 py-2 rounded-md cursor-pointer"
+                style={{
+                  top: "calc(100% + 6px)",
+                  background: "#161A26",
+                  border: "1px solid rgba(255,210,122,0.35)",
+                  boxShadow: "0 12px 32px rgba(0,0,0,0.75), 0 0 0 1px rgba(0,0,0,0.4)",
+                }}
                 onClick={() => setHintOpen(false)}
               >
-                Dust = tokens valued under <span className="text-gold font-semibold">${DUST_THRESHOLD_USD}</span>.
+                Dust = tokens valued under{" "}
+                <span className="text-gold font-semibold">${DUST_THRESHOLD_USD}</span>.
                 Anything above is a real position and skipped.
+                <div className="text-[9px] text-text-muted mt-1 opacity-70">
+                  tap to close
+                </div>
               </motion.div>
             )}
           </AnimatePresence>
@@ -238,6 +249,9 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups, o
                 }}
               >
                 <ArrowRight size={12} style={{ color: asset.color }} strokeWidth={2.5} />
+                <span className="text-[10px] uppercase tracking-wider font-bold opacity-70" style={{ color: asset.color }}>
+                  you get
+                </span>
                 <span className="text-[12px] font-display font-bold" style={{ color: asset.color }}>
                   {outputIsSol
                     ? `~${formatTokenAmount(totalSolReceived, asset, livePrices)} SOL`
@@ -262,6 +276,9 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups, o
                   }}
                 >
                   <ArrowRight size={12} style={{ color: asset.color }} strokeWidth={2.5} />
+                  <span className="text-[10px] uppercase tracking-wider font-bold opacity-70" style={{ color: asset.color }}>
+                    you get
+                  </span>
                   <span className="text-[12px] font-display font-bold" style={{ color: asset.color }}>
                     ~{formatTokenAmount(swapOutputAsset, asset, livePrices)} {asset.symbol}
                   </span>
@@ -284,7 +301,7 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups, o
                     {rentReclaimSol.toFixed(4)} SOL
                   </span>
                   <span className="text-[10px] uppercase tracking-wider text-gold opacity-70 font-bold">
-                    ~${rentReclaimUsd.toFixed(2)}
+                    rent
                   </span>
                 </span>
               </>
