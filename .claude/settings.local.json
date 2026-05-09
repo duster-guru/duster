@@ -11,7 +11,30 @@
       "Bash(curl -s -o /dev/null -w \"HTTP %{http_code} \\(%{size_download} bytes\\)\\\\n\" http://localhost:5173/)",
       "Bash(curl -s -o /dev/null -w \"main.jsx: HTTP %{http_code}\\\\n\" \"http://localhost:5173/src/main.jsx\")",
       "Bash(curl -s \"http://localhost:5173/src/main.jsx\")",
-      "Bash(npx vite *)"
+      "Bash(npx vite *)",
+      "Bash(pkill -f \"vite\")",
+      "Bash(ipconfig getifaddr *)",
+      "Bash(awk '/inet / && $2!=\"127.0.0.1\"{print $2; exit}')",
+      "Bash(npx *)",
+      "Bash(curl -s -o /dev/null -w \"LAN reachable: HTTP %{http_code}\\\\n\" http://192.168.0.12:5173/)",
+      "Bash(defaults read *)",
+      "Bash(lsof -nP -iTCP:5173 -sTCP:LISTEN)",
+      "Bash(curl -s -o /dev/null -w \"192.168.0.12: HTTP %{http_code}\\\\n\" --max-time 3 http://192.168.0.12:5173/)",
+      "Bash(curl -s -o /dev/null -w \"10.0.0.2: HTTP %{http_code}\\\\n\" --max-time 3 http://10.0.0.2:5173/)",
+      "Bash(networksetup -getairportnetwork en0)",
+      "Bash(awk '/^[a-z]/{iface=$1} /inet / && $2!=\"127.0.0.1\"{print iface, $2}')",
+      "Bash(mv /Users/alimrz/.local/bin/cloudflared /tmp/cloudflared.tgz)",
+      "Bash(tar -xzf /tmp/cloudflared.tgz -C /Users/alimrz/.local/bin/)",
+      "Bash(chmod +x /Users/alimrz/.local/bin/cloudflared)",
+      "Bash(/Users/alimrz/.local/bin/cloudflared --version)",
+      "Bash(cloudflared --version)",
+      "Read(//opt/homebrew/bin/**)",
+      "Bash(/opt/homebrew/bin/cloudflared --version)",
+      "Bash(curl -s --max-time 5 https://api.ipify.org)",
+      "Bash(curl -s -o /dev/null -w \"Tunnel HTTP %{http_code}\\\\n\" --max-time 10 -H \"Bypass-Tunnel-Reminder: true\" https://heavy-towns-stare.loca.lt/)",
+      "Bash(curl -s -o /dev/null -w \"Tunnel HTTP %{http_code}\\\\n\" --max-time 10 -H \"Bypass-Tunnel-Reminder: true\" -H \"User-Agent: curl-test\" https://heavy-towns-stare.loca.lt/)",
+      "Bash(route -n get 192.168.0.50)",
+      "Bash(sudo -n pfctl -s info)"
     ]
   }
 }

@@ -115,7 +115,10 @@ export default function Cleaning({ go, sweepMode }) {
                   style={{
                     background: `radial-gradient(circle at 30% 30%, ${p.color}ff, ${p.color}99)`,
                     boxShadow: `0 0 20px ${p.color}80, inset 0 1px 0 rgba(255,255,255,0.4)`,
-                    animation: phase === "materialize" ? "float 2.4s ease-in-out infinite" : undefined,
+                    animationName: phase === "materialize" ? "float" : "none",
+                    animationDuration: "2.4s",
+                    animationTimingFunction: "ease-in-out",
+                    animationIterationCount: "infinite",
                     animationDelay: `${i * 0.1}s`,
                   }}
                 >

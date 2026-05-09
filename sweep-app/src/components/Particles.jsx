@@ -34,7 +34,11 @@ export default function Particles({
       ctx.scale(dpr, dpr);
     };
     resize();
-    const ro = new ResizeObserver(resize);
+    // Wrap in rAF to avoid "ResizeObserver loop completed" warning when
+    // the callback synchronously triggers another layout pass.
+    const ro = new ResizeObserver(() => {
+      window.requestAnimationFrame(resize);
+    });
     ro.observe(canvas);
 
     const W = () => canvas.getBoundingClientRect().width;
