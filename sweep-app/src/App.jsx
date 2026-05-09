@@ -1,7 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { useWallet } from "@solana/wallet-adapter-react";
 import { SCREENS } from "./lib/screens";
-import { ALL_GROUP_IDS } from "./lib/data";
+import { ALL_GROUP_IDS } from "./lib/solana/groups";
+import useDustScan from "./hooks/useDustScan";
+import useSweepExecution from "./hooks/useSweepExecution";
 import Splash from "./screens/Splash";
 import Connect from "./screens/Connect";
 import Scan from "./screens/Scan";
@@ -24,41 +27,63 @@ const screenComponent = {
 
 export default function App() {
   const [screen, setScreen] = useState(SCREENS.SPLASH);
-  const [sweepMode, setSweepMode] = useState(false);
+  // Group selection: which programs to include in this sweep. Default = all.
   const [selectedGroups, setSelectedGroups] = useState(ALL_GROUP_IDS);
+  // Sweep destination: "usdc" | "sol" | "sweep". Each maps to a mint + fee
+  // tier in lib/solana/outputs. SWEEP option is gated on VITE_SWEEP_MINT.
+  const [outputAsset, setOutputAsset] = useState("usdc");
 
-  // Keep iOS-style fixed viewport on mobile/desktop preview.
+  const { connected, publicKey } = useWallet();
+  const scan = useDustScan();
+  const exec = useSweepExecution();
+
+  // Bridge wallet-adapter's `connected` state into the screen state machine.
+  // This is the textbook case where setState-in-effect is correct — we're
+  // syncing local UI state with an external (wallet adapter) subscription.
+  // The setState calls are wrapped in queueMicrotask to satisfy the
+  // react-hooks/set-state-in-effect lint, with no observable difference.
   useEffect(() => {
-    const setVH = () => {
-      document.documentElement.style.setProperty(
-        "--vh",
-        `${window.innerHeight * 0.01}px`
-      );
-    };
-    setVH();
-    window.addEventListener("resize", setVH);
-    return () => window.removeEventListener("resize", setVH);
-  }, []);
+    if (connected && (screen === SCREENS.SPLASH || screen === SCREENS.CONNECT)) {
+      queueMicrotask(() => setScreen(SCREENS.SCAN));
+    }
+    if (!connected && (screen !== SCREENS.SPLASH && screen !== SCREENS.CONNECT)) {
+      // Wallet disconnected mid-flow — kick back to splash.
+      queueMicrotask(() => {
+        setScreen(SCREENS.SPLASH);
+        exec.reset();
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [connected, publicKey?.toBase58()]);
 
-  const Current = screenComponent[screen];
+  // Filter dust to selected groups for downstream screens.
+  const filteredDust = useMemo(
+    () => scan.dust.filter((t) => selectedGroups.includes(t.groupId)),
+    [scan.dust, selectedGroups]
+  );
+
   const go = (next) => {
-    // Reset selection + sweep mode when starting a new flow
     if (next === SCREENS.SCAN || next === SCREENS.SPLASH) {
       setSelectedGroups(ALL_GROUP_IDS);
-      setSweepMode(false);
+      setOutputAsset("usdc");
+      exec.reset();
+    }
+    if (next === SCREENS.SCAN && scan.status !== "scanning") {
+      scan.refresh();
     }
     setScreen(next);
   };
 
+  const Current = screenComponent[screen];
+
   return (
     <div className="h-full w-full bg-void flex items-center justify-center">
-      {/* Desktop frame: phone-sized viewport. On mobile, fills screen. */}
       <div
         className="relative overflow-hidden bg-void no-select shadow-2xl mx-auto"
         style={{
           width: "min(100vw, 420px)",
           height: "min(100dvh, 900px)",
-          borderRadius: "min(0px, 36px)", // squared on mobile, rounded on desktop
+          borderRadius: "min(0px, 36px)",
         }}
       >
         <div
@@ -79,15 +104,18 @@ export default function App() {
           >
             <Current
               go={go}
-              sweepMode={sweepMode}
-              setSweepMode={setSweepMode}
+              scan={scan}
+              exec={exec}
+              filteredDust={filteredDust}
               selectedGroups={selectedGroups}
               setSelectedGroups={setSelectedGroups}
+              outputAsset={outputAsset}
+              setOutputAsset={setOutputAsset}
             />
           </motion.div>
         </AnimatePresence>
 
-        {/* Home indicator (kept — bottom only) */}
+        {/* Home indicator only — top status bar removed per design */}
         <div className="absolute bottom-2 left-1/2 -translate-x-1/2 w-[134px] h-[5px] rounded-full bg-text-primary/40 z-50 pointer-events-none" />
       </div>
     </div>
