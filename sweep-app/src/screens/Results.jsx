@@ -1,6 +1,6 @@
 import { useWallet } from "@solana/wallet-adapter-react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowRight, Check, ChevronDown, PenLine, Sparkles } from "lucide-react";
+import { ArrowRight, Check, ChevronDown, PenLine, RefreshCw, Sparkles } from "lucide-react";
 import { useMemo, useState } from "react";
 import Particles from "../components/Particles";
 import CountUp from "../components/CountUp";
@@ -30,8 +30,6 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups, o
   const availableOutputs = useMemo(() => getAvailableOutputs(), []);
   const asset = getOutputAsset(outputAsset);
   const livePrices = scan.outputPrices;
-  const livePrice = getEffectivePrice(asset, livePrices);
-  const livePriceIsLive = !!(livePrices && livePrices[asset.id]);
   const livePriceSol = getEffectivePrice(getOutputAsset("sol"), livePrices);
 
   // -----------------------------------------------------------------------
@@ -153,6 +151,17 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups, o
           >
             DUST &lt; ${DUST_THRESHOLD_USD}
           </span>
+          <button
+            onClick={() => { haptic.light?.(); scan.refreshPrices?.(); }}
+            disabled={scan.pricesRefreshing}
+            className="w-5 h-5 rounded-full glass flex items-center justify-center disabled:opacity-50"
+            title="Refresh prices · auto-refreshes every 30s"
+          >
+            <RefreshCw
+              size={10}
+              className={`text-text-secondary ${scan.pricesRefreshing ? "animate-spin" : ""}`}
+            />
+          </button>
         </motion.div>
 
         <motion.div
@@ -367,7 +376,7 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups, o
                   {isSelected && a.id !== "usdc" && (
                     <div className="flex items-center gap-1 mt-0.5">
                       <span
-                        className="w-1 h-1 rounded-full"
+                        className={`w-1 h-1 rounded-full ${scan.pricesRefreshing ? "animate-pulse" : ""}`}
                         style={{
                           background: cardLiveOk ? "#34E1A2" : "#FFB257",
                           boxShadow: cardLiveOk ? "0 0 4px #34E1A2" : "0 0 4px #FFB257",

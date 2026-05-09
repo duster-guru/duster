@@ -43,6 +43,7 @@ export default function useDustScan() {
   // at scan time. Each component reads its asset's id and falls back to the
   // env-derived usdRef if Jupiter didn't return a price.
   const [outputPrices, setOutputPrices] = useState({});
+  const [pricesRefreshing, setPricesRefreshing] = useState(false);
   const [diag, setDiag] = useState({
     accountCount: 0,
     nonZeroCount: 0,
@@ -52,6 +53,10 @@ export default function useDustScan() {
     usdcSelf: 0,
   });
   const cancelled = useRef(false);
+  // Refs so the periodic refresher reads the latest dust list without
+  // re-creating the interval every render.
+  const dustRef = useRef([]);
+  useEffect(() => { dustRef.current = dust; }, [dust]);
 
   const run = useCallback(async () => {
     if (!publicKey) {
@@ -189,6 +194,58 @@ export default function useDustScan() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [connected, publicKey?.toBase58()]);
 
+  /**
+   * Re-price the existing dust list + output mints without re-reading
+   * token accounts from RPC. Cheap (one Jupiter call). Used by the
+   * periodic refresher and the manual refresh button.
+   */
+  const refreshPrices = useCallback(async () => {
+    const currentDust = dustRef.current;
+    if (!publicKey || currentDust.length === 0) return;
+    setPricesRefreshing(true);
+    try {
+      const dustMints = currentDust.map((d) => d.mint);
+      const outputMints = [
+        USDC_MINT.toBase58(),
+        WSOL_MINT.toBase58(),
+        SWEEP_MINT?.toBase58(),
+      ].filter(Boolean);
+      const newPriceMap = await fetchPrices([
+        ...new Set([...dustMints, ...outputMints]),
+      ]);
+
+      setOutputPrices({
+        usdc: newPriceMap.get(USDC_MINT.toBase58()) ?? 1,
+        sol: newPriceMap.get(WSOL_MINT.toBase58()) ?? null,
+        sweep: SWEEP_MINT ? (newPriceMap.get(SWEEP_MINT.toBase58()) ?? null) : null,
+      });
+
+      setDust((prev) =>
+        prev.map((d) => {
+          const newPrice = newPriceMap.get(d.mint);
+          if (newPrice == null || !Number.isFinite(newPrice)) return d;
+          return {
+            ...d,
+            priceUsd: newPrice,
+            valueUsd: newPrice * d.uiAmount,
+          };
+        })
+      );
+      console.log("[scan] prices refreshed");
+    } catch (e) {
+      console.warn("[scan] price refresh failed:", e?.message);
+    } finally {
+      setPricesRefreshing(false);
+    }
+  }, [publicKey]);
+
+  // Auto-refresh prices every 30s while in 'ready' state.
+  useEffect(() => {
+    if (status !== "ready") return;
+    const id = setInterval(refreshPrices, 30_000);
+    return () => clearInterval(id);
+  }, [status, refreshPrices]);
+
   return {
     status,
     progress,
@@ -198,7 +255,9 @@ export default function useDustScan() {
     error,
     diag,
     outputPrices,
+    pricesRefreshing,
     refresh: run,
+    refreshPrices,
   };
 }
 
