@@ -22,26 +22,34 @@ export default function Splash({ go }) {
       />
 
       <div className="relative z-10 h-full flex flex-col items-center pt-[18%] px-5 pb-10">
-        {/* Logo — favicon with soft purple halo */}
+        {/* Logo — favicon inside the hexagon frame */}
         <motion.div
           initial={{ opacity: 0, scale: 0.85, y: 12 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           transition={{ duration: 0.8, ease, delay: 0.1 }}
-          className="relative w-[140px] h-[140px] flex items-center justify-center"
+          className="relative"
         >
           <div
-            className="absolute inset-0 rounded-full pointer-events-none"
+            className="w-[112px] h-[124px] flex items-center justify-center"
             style={{
-              background: "radial-gradient(circle, rgba(134,59,255,0.45) 0%, rgba(71,191,255,0.18) 40%, transparent 70%)",
-              filter: "blur(18px)",
+              clipPath: "polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)",
+              background: "linear-gradient(135deg, rgba(134,59,255,0.4), rgba(71,191,255,0.2))",
             }}
-          />
-          <img
-            src="/favicon.svg"
-            alt="SWEEP"
-            className="relative w-[96px] h-[96px]"
-            style={{ filter: "drop-shadow(0 0 24px rgba(134,59,255,0.55))" }}
-          />
+          >
+            <div
+              className="w-[104px] h-[116px] flex items-center justify-center bg-surface"
+              style={{
+                clipPath: "polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)",
+              }}
+            >
+              <img
+                src="/favicon.svg"
+                alt="SWEEP"
+                className="w-[56px] h-[56px]"
+                style={{ filter: "drop-shadow(0 0 12px rgba(134,59,255,0.55))" }}
+              />
+            </div>
+          </div>
         </motion.div>
 
         <motion.h1
