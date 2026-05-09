@@ -43,7 +43,9 @@ export default function useDustScan() {
   // at scan time. Each component reads its asset's id and falls back to the
   // env-derived usdRef if Jupiter didn't return a price.
   const [outputPrices, setOutputPrices] = useState({});
+  const [outputIcons, setOutputIcons] = useState({});
   const [pricesRefreshing, setPricesRefreshing] = useState(false);
+  const [lastPriceUpdateAt, setLastPriceUpdateAt] = useState(null);
   const [diag, setDiag] = useState({
     accountCount: 0,
     nonZeroCount: 0,
@@ -103,6 +105,7 @@ export default function useDustScan() {
         sweep: SWEEP_MINT ? (priceMap.get(SWEEP_MINT.toBase58()) ?? null) : null,
       };
       setOutputPrices(outPrices);
+      setLastPriceUpdateAt(Date.now());
       console.log("[scan] priced dust:", priceMap.size - outputMints.filter(m => priceMap.has(m)).length, "/", dustMints.length, "outputs:", outPrices);
       setProgress(60);
 
@@ -148,11 +151,27 @@ export default function useDustScan() {
         usdcSelf: usdc,
       });
 
-      // Metadata for the dust subset only — saves bandwidth.
+      // Metadata for the dust subset + output mints (so destination cards
+      // can render real logos instead of single-letter fallbacks).
       setMessage("Loading token metadata…");
       setProgress(80);
-      const tokenInfoMap = await fetchTokenInfos(sweepable.map((t) => t.mint));
+      const metadataMints = [
+        ...sweepable.map((t) => t.mint),
+        USDC_MINT.toBase58(),
+        WSOL_MINT.toBase58(),
+        SWEEP_MINT?.toBase58(),
+      ].filter(Boolean);
+      const tokenInfoMap = await fetchTokenInfos([...new Set(metadataMints)]);
       if (cancelled.current) return;
+
+      // Output icon URLs for the destination picker.
+      setOutputIcons({
+        usdc: tokenInfoMap.get(USDC_MINT.toBase58())?.icon || null,
+        sol: tokenInfoMap.get(WSOL_MINT.toBase58())?.icon || null,
+        sweep: SWEEP_MINT
+          ? tokenInfoMap.get(SWEEP_MINT.toBase58())?.icon || null
+          : null,
+      });
 
       const enriched = sweepable.map((t) => {
         const info = tokenInfo(tokenInfoMap, t.mint, t.decimals);
@@ -219,6 +238,7 @@ export default function useDustScan() {
         sol: newPriceMap.get(WSOL_MINT.toBase58()) ?? null,
         sweep: SWEEP_MINT ? (newPriceMap.get(SWEEP_MINT.toBase58()) ?? null) : null,
       });
+      setLastPriceUpdateAt(Date.now());
 
       setDust((prev) =>
         prev.map((d) => {
@@ -255,7 +275,9 @@ export default function useDustScan() {
     error,
     diag,
     outputPrices,
+    outputIcons,
     pricesRefreshing,
+    lastPriceUpdateAt,
     refresh: run,
     refreshPrices,
   };
