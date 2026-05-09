@@ -1,6 +1,6 @@
 import { useWallet } from "@solana/wallet-adapter-react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowRight, Check, ChevronDown, Eye, EyeOff, PenLine, RefreshCw, Sparkles } from "lucide-react";
+import { ArrowRight, Check, ChevronDown, Info, PenLine, RefreshCw, Sparkles } from "lucide-react";
 import { useMemo, useState } from "react";
 import Particles from "../components/Particles";
 import CountUp from "../components/CountUp";
@@ -34,6 +34,7 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups, o
       return next;
     });
   };
+  const [hintOpen, setHintOpen] = useState(false);
 
   const allGroups = useMemo(() => summarizeGroups(scan.dust, ALL_GROUP_IDS), [scan.dust]);
   const presentGroupIds = useMemo(() => allGroups.map((g) => g.id), [allGroups]);
@@ -154,36 +155,48 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups, o
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.45, delay: 0.1, ease }}
-          className="flex items-center justify-center gap-2"
+          className="flex flex-col items-center gap-1.5"
         >
-          <span
-            title={`Dust = tokens valued under $${DUST_THRESHOLD_USD}. Anything above is treated as a real position and skipped.`}
-            className="cursor-help"
-          >
-            <MicroLabel color="gold">We found hidden money</MicroLabel>
-          </span>
-          <button
-            onClick={() => { haptic.light?.(); scan.refreshPrices?.(); }}
-            disabled={scan.pricesRefreshing}
-            className="w-5 h-5 rounded-full glass flex items-center justify-center disabled:opacity-50"
-            title="Refresh prices · auto-refreshes every 30s"
-          >
-            <RefreshCw
-              size={10}
-              className={`text-text-secondary ${scan.pricesRefreshing ? "animate-spin" : ""}`}
-            />
-          </button>
-          <button
-            onClick={toggleMode}
-            className="w-5 h-5 rounded-full glass flex items-center justify-center"
-            title={simpleMode ? "Show advanced details" : "Hide advanced details"}
-          >
-            {simpleMode ? (
-              <Eye size={10} className="text-text-secondary" />
-            ) : (
-              <EyeOff size={10} className="text-sweep" />
+          <div className="flex items-center justify-center gap-2">
+            <button
+              onClick={() => { haptic.light?.(); setHintOpen((v) => !v); }}
+              className="flex items-center gap-1 group"
+              title={`Dust = tokens valued under $${DUST_THRESHOLD_USD}.`}
+            >
+              <span
+                className="text-[11px] font-display font-semibold uppercase tracking-[0.16em] text-gold"
+                style={{ borderBottom: "1px dashed rgba(255,210,122,0.45)", paddingBottom: 1 }}
+              >
+                We found hidden money
+              </span>
+              <Info size={10} className="text-gold opacity-70" />
+            </button>
+            <button
+              onClick={toggleMode}
+              className="px-2 py-0.5 rounded-full glass flex items-center gap-1 text-[10px] uppercase tracking-wider font-bold transition-colors"
+              style={{
+                color: simpleMode ? "#A6ADBE" : "#7CFFB2",
+                borderColor: simpleMode ? undefined : "rgba(124,255,178,0.4)",
+              }}
+              title={simpleMode ? "Show advanced details" : "Hide advanced details"}
+            >
+              {simpleMode ? "+ Details" : "− Details"}
+            </button>
+          </div>
+          <AnimatePresence>
+            {hintOpen && (
+              <motion.div
+                initial={{ opacity: 0, y: -4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -4 }}
+                transition={{ duration: 0.2 }}
+                className="text-[11px] text-text-muted text-center max-w-[280px] leading-snug px-3 py-1 rounded-md glass"
+              >
+                Dust = tokens valued under <span className="text-gold font-semibold">${DUST_THRESHOLD_USD}</span>.
+                Anything above is a real position and skipped.
+              </motion.div>
             )}
-          </button>
+          </AnimatePresence>
         </motion.div>
 
         <motion.div
@@ -356,7 +369,21 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups, o
           className="mt-4"
         >
           <div className="flex items-center justify-between mb-2 px-1">
-            <MicroLabel>Convert to</MicroLabel>
+            <div className="flex items-center gap-2">
+              <MicroLabel>Convert to</MicroLabel>
+              <button
+                onClick={() => { haptic.light?.(); scan.refreshPrices?.(); }}
+                disabled={scan.pricesRefreshing}
+                className="flex items-center gap-1 text-[10px] text-text-muted hover:text-text-secondary disabled:opacity-50"
+                title="Auto-refreshes every 30s · tap to refresh now"
+              >
+                <RefreshCw
+                  size={10}
+                  className={scan.pricesRefreshing ? "animate-spin" : ""}
+                />
+                <span className="lowercase tracking-normal">prices live</span>
+              </button>
+            </div>
             {asset.id === "sweep" && (
               <span className="text-[10px] uppercase tracking-wider text-magenta font-bold">
                 lowest fee
@@ -380,16 +407,30 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups, o
                     boxShadow: isSelected ? `0 0 18px ${a.accent},0.35)` : "none",
                   }}
                 >
-                  <div
-                    className="w-8 h-8 rounded-full flex items-center justify-center font-display font-bold text-[10px] text-void mb-0.5"
-                    style={{
-                      background: `radial-gradient(circle at 30% 30%, ${a.color}, ${a.color}aa)`,
-                      boxShadow: `0 0 10px ${a.accent},0.45)`,
-                      opacity: isSelected ? 1 : 0.55,
-                    }}
-                  >
-                    {a.symbol === "$SWEEP" ? "✦" : a.symbol[0]}
-                  </div>
+                  {scan.outputIcons?.[a.id] ? (
+                    <img
+                      src={scan.outputIcons[a.id]}
+                      alt={a.symbol}
+                      className="w-8 h-8 rounded-full mb-0.5 object-cover"
+                      style={{
+                        boxShadow: `0 0 10px ${a.accent},0.45)`,
+                        opacity: isSelected ? 1 : 0.55,
+                        background: `radial-gradient(circle at 30% 30%, ${a.color}33, transparent)`,
+                      }}
+                      onError={(e) => { e.currentTarget.style.display = "none"; }}
+                    />
+                  ) : (
+                    <div
+                      className="w-8 h-8 rounded-full flex items-center justify-center font-display font-bold text-[10px] text-void mb-0.5"
+                      style={{
+                        background: `radial-gradient(circle at 30% 30%, ${a.color}, ${a.color}aa)`,
+                        boxShadow: `0 0 10px ${a.accent},0.45)`,
+                        opacity: isSelected ? 1 : 0.55,
+                      }}
+                    >
+                      {a.symbol === "$SWEEP" ? "✦" : a.symbol[0]}
+                    </div>
+                  )}
                   <div className="text-[12px] font-display font-bold text-text-primary leading-none">
                     {a.symbol}
                   </div>
