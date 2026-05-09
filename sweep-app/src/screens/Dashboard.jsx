@@ -63,11 +63,18 @@ export default function Dashboard({ go, setSweepMode }) {
             <div className="mt-1 font-display font-bold text-[42px] text-gradient-found leading-none tabular-nums">
               <CountUp to={USER_STATS.totalCleaned} duration={900} prefix="$" decimals={2} />
             </div>
+            <div className="mt-1 flex items-center gap-1.5 text-[11px] text-text-muted">
+              <span
+                className="w-3 h-3 rounded-full flex items-center justify-center text-[7px] text-void font-bold"
+                style={{ background: "radial-gradient(circle, #FFD27A, #B58B3A)" }}
+              >◎</span>
+              <span>+<span className="font-mono text-gold font-semibold">${USER_STATS.rentReclaimed.toFixed(2)}</span> SOL rent reclaimed</span>
+            </div>
             <div className="mt-3 -mx-2">
               <Sparkline />
             </div>
             <div className="mt-2 flex items-center justify-between text-[12px] text-text-muted">
-              <span className="font-mono tabular-nums">{USER_STATS.sweeps} sweeps</span>
+              <span className="font-mono tabular-nums">{USER_STATS.sweeps} sweeps · {USER_STATS.signatures} signatures</span>
               <span className="font-mono tabular-nums">{USER_STATS.tokens} tokens cleaned</span>
             </div>
           </GlassCard>

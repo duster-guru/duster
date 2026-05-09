@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { SCREENS } from "./lib/screens";
-import { ALL_CHAIN_IDS } from "./lib/data";
+import { ALL_GROUP_IDS } from "./lib/data";
 import Splash from "./screens/Splash";
 import Connect from "./screens/Connect";
 import Scan from "./screens/Scan";
@@ -25,7 +25,7 @@ const screenComponent = {
 export default function App() {
   const [screen, setScreen] = useState(SCREENS.SPLASH);
   const [sweepMode, setSweepMode] = useState(false);
-  const [selectedChains, setSelectedChains] = useState(ALL_CHAIN_IDS);
+  const [selectedGroups, setSelectedGroups] = useState(ALL_GROUP_IDS);
 
   // Keep iOS-style fixed viewport on mobile/desktop preview.
   useEffect(() => {
@@ -44,7 +44,7 @@ export default function App() {
   const go = (next) => {
     // Reset selection + sweep mode when starting a new flow
     if (next === SCREENS.SCAN || next === SCREENS.SPLASH) {
-      setSelectedChains(ALL_CHAIN_IDS);
+      setSelectedGroups(ALL_GROUP_IDS);
       setSweepMode(false);
     }
     setScreen(next);
@@ -81,23 +81,13 @@ export default function App() {
               go={go}
               sweepMode={sweepMode}
               setSweepMode={setSweepMode}
-              selectedChains={selectedChains}
-              setSelectedChains={setSelectedChains}
+              selectedGroups={selectedGroups}
+              setSelectedGroups={setSelectedGroups}
             />
           </motion.div>
         </AnimatePresence>
 
-        {/* Status bar overlay (cosmetic, iOS-style) */}
-        <div className="absolute top-0 left-0 right-0 h-11 z-50 pointer-events-none flex items-center justify-between px-6 text-[13px] font-semibold text-text-primary/90">
-          <span>9:41</span>
-          <span className="flex gap-1.5 items-center">
-            <span className="opacity-80">●●●</span>
-            <span className="opacity-80">📶</span>
-            <span className="opacity-80">100%</span>
-          </span>
-        </div>
-
-        {/* Home indicator */}
+        {/* Home indicator (kept — bottom only) */}
         <div className="absolute bottom-2 left-1/2 -translate-x-1/2 w-[134px] h-[5px] rounded-full bg-text-primary/40 z-50 pointer-events-none" />
       </div>
     </div>

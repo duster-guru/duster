@@ -1,98 +1,142 @@
-// 4 chains · 12 tokens · $47.32 — kept clean for storytelling and animation grids.
-// Per-chain sweep is the only honest implementation (bridging dust costs more
-// than the dust itself), so the data model groups by chain.
+// Solana-native dust model.
+// Each "group" maps to one v0 VersionedTransaction the user signs in a single batch.
+// Groups are how we keep within the 1232-byte tx budget while batching swaps + closes.
 
-export const CHAINS = {
-  polygon:  { id: "polygon",  name: "Polygon",  short: "POLY", color: "#8247E5", glyph: "⬢" },
-  arbitrum: { id: "arbitrum", name: "Arbitrum", short: "ARB",  color: "#28A0F0", glyph: "◆" },
-  optimism: { id: "optimism", name: "Optimism", short: "OP",   color: "#FF0420", glyph: "●" },
-  ethereum: { id: "ethereum", name: "Ethereum", short: "ETH",  color: "#627EEA", glyph: "◇" },
+export const GROUPS = {
+  memecoin: {
+    id: "memecoin",
+    name: "Memecoins",
+    short: "MEME",
+    color: "#FF8E5C",
+    glyph: "◉",
+    desc: "BONK, WIF, POPCAT, MEW",
+  },
+  defi: {
+    id: "defi",
+    name: "DeFi",
+    short: "DEFI",
+    color: "#5B8CFF",
+    glyph: "◇",
+    desc: "JUP, RAY, ORCA",
+  },
+  lst: {
+    id: "lst",
+    name: "Liquid Staking",
+    short: "LST",
+    color: "#9945FF",
+    glyph: "◆",
+    desc: "mSOL, jitoSOL",
+  },
+  token2022: {
+    id: "token2022",
+    name: "Token-2022",
+    short: "T22",
+    color: "#14F195",
+    glyph: "◬",
+    desc: "PYUSD, EURC, JLP-22",
+  },
 };
 
-export const ALL_CHAIN_IDS = Object.keys(CHAINS);
+export const ALL_GROUP_IDS = Object.keys(GROUPS);
 
+// Mock dust list — 12 tokens, $47.32 across 4 groups.
+// Real product would `getTokenAccountsByOwner` on TOKEN_PROGRAM_ID + TOKEN_2022_PROGRAM_ID.
 export const DUST_TOKENS = [
-  // Polygon — $17.14
-  { symbol: "MATIC", chain: "polygon", value: 12.40, color: "#8247E5" },
-  { symbol: "STG",   chain: "polygon", value:  2.74, color: "#A0A0A0" },
-  { symbol: "SUSHI", chain: "polygon", value:  2.00, color: "#FA52A0" },
-  // Arbitrum — $14.38
-  { symbol: "ARB",   chain: "arbitrum", value:  9.18, color: "#28A0F0" },
-  { symbol: "MAGIC", chain: "arbitrum", value:  3.10, color: "#E5333A" },
-  { symbol: "GMX",   chain: "arbitrum", value:  2.10, color: "#04D1A6" },
-  // Optimism — $9.82
-  { symbol: "OP",    chain: "optimism", value:  5.77, color: "#FF0420" },
-  { symbol: "VELO",  chain: "optimism", value:  2.92, color: "#9D2235" },
-  { symbol: "SNX",   chain: "optimism", value:  1.13, color: "#5FCDF9" },
-  // Ethereum — $5.98
-  { symbol: "PEPE",  chain: "ethereum", value:  2.92, color: "#4DAF4F" },
-  { symbol: "SHIB",  chain: "ethereum", value:  1.94, color: "#FFA409" },
-  { symbol: "LDO",   chain: "ethereum", value:  1.12, color: "#F69988" },
+  // Memecoins — $18.50
+  { symbol: "BONK",   group: "memecoin",  value: 8.00, color: "#FF6B00" },
+  { symbol: "WIF",    group: "memecoin",  value: 5.00, color: "#DEB887" },
+  { symbol: "POPCAT", group: "memecoin",  value: 3.50, color: "#A0A0A0" },
+  { symbol: "MEW",    group: "memecoin",  value: 2.00, color: "#FF4FD8" },
+  // DeFi — $14.20
+  { symbol: "JUP",    group: "defi",      value: 9.00, color: "#34E1A2" },
+  { symbol: "RAY",    group: "defi",      value: 3.20, color: "#5B8CFF" },
+  { symbol: "ORCA",   group: "defi",      value: 2.00, color: "#FFD27A" },
+  // Liquid Staking — $9.50
+  { symbol: "mSOL",   group: "lst",       value: 6.30, color: "#9945FF" },
+  { symbol: "jitoSOL",group: "lst",       value: 3.20, color: "#FF6B7A" },
+  // Token-2022 — $5.62
+  { symbol: "PYUSD",  group: "token2022", value: 2.00, color: "#5B8CFF" },
+  { symbol: "EURC",   group: "token2022", value: 1.92, color: "#1E3A8A" },
+  { symbol: "JLP-22", group: "token2022", value: 1.70, color: "#14F195" },
 ];
 
-// Per-chain gas estimate (sponsored / paymaster covered, displayed to keep math honest).
-export const CHAIN_GAS = {
-  polygon:  0.05,
-  arbitrum: 0.08,
-  optimism: 0.07,
-  ethereum: 0.22,
+// Solana economics. Per-account rent (closed at sweep time, refunded as native SOL).
+// 0.00203928 SOL × $150 ≈ $0.306 per account.
+export const SOL_USD = 150;
+export const RENT_PER_ACCOUNT_SOL = 0.00203928;
+export const RENT_PER_ACCOUNT_USD = +(RENT_PER_ACCOUNT_SOL * SOL_USD).toFixed(4);
+
+// Per-group network fee (base + priority, one v0 tx per group).
+// Solana fees are tiny — well under a cent typically. We surface them honestly.
+export const GROUP_NETWORK_FEE_USD = {
+  memecoin:   0.012,
+  defi:       0.010,
+  lst:        0.008,
+  token2022:  0.011,
 };
 
 export const TOTAL_FOUND = +DUST_TOKENS.reduce((s, t) => s + t.value, 0).toFixed(2);
-export const TOTAL_GAS = +Object.values(CHAIN_GAS).reduce((s, g) => s + g, 0).toFixed(2);
-export const NET_RECEIVED = +(TOTAL_FOUND - TOTAL_GAS).toFixed(2);
+export const TOTAL_NETWORK_FEE = +Object.values(GROUP_NETWORK_FEE_USD).reduce((s, g) => s + g, 0).toFixed(3);
+export const TOTAL_RENT_RECLAIM = +(DUST_TOKENS.length * RENT_PER_ACCOUNT_USD).toFixed(2);
+export const NET_RECEIVED = +(TOTAL_FOUND - TOTAL_NETWORK_FEE + TOTAL_RENT_RECLAIM).toFixed(2);
 
 // Selectors -----------------------------------------------------------------
 
-export function getChainSummary(chainIds = ALL_CHAIN_IDS) {
-  return chainIds.map((id) => {
-    const tokens = DUST_TOKENS.filter((t) => t.chain === id);
+export function getGroupSummary(groupIds = ALL_GROUP_IDS) {
+  return groupIds.map((id) => {
+    const tokens = DUST_TOKENS.filter((t) => t.group === id);
     const total = +tokens.reduce((s, t) => s + t.value, 0).toFixed(2);
+    const fee = GROUP_NETWORK_FEE_USD[id] || 0;
+    const rent = +(tokens.length * RENT_PER_ACCOUNT_USD).toFixed(2);
     return {
-      ...CHAINS[id],
+      ...GROUPS[id],
       tokens,
       total,
-      gas: CHAIN_GAS[id],
-      net: +(total - CHAIN_GAS[id]).toFixed(2),
+      fee,
+      rent,
+      net: +(total - fee + rent).toFixed(2),
     };
   });
 }
 
-export function getTotalsFor(chainIds) {
-  const ids = chainIds?.length ? chainIds : ALL_CHAIN_IDS;
-  const tokens = DUST_TOKENS.filter((t) => ids.includes(t.chain));
+export function getTotalsFor(groupIds) {
+  const ids = groupIds?.length ? groupIds : ALL_GROUP_IDS;
+  const tokens = DUST_TOKENS.filter((t) => ids.includes(t.group));
   const total = +tokens.reduce((s, t) => s + t.value, 0).toFixed(2);
-  const gas = +ids.reduce((s, id) => s + (CHAIN_GAS[id] || 0), 0).toFixed(2);
+  const fee = +ids.reduce((s, id) => s + (GROUP_NETWORK_FEE_USD[id] || 0), 0).toFixed(3);
+  const rent = +(tokens.length * RENT_PER_ACCOUNT_USD).toFixed(2);
   return {
     tokens,
     tokenCount: tokens.length,
-    chainCount: ids.length,
+    groupCount: ids.length,
+    txCount: ids.length, // 1 v0 tx per group, signed in one batch
     total,
-    gas,
-    net: +(total - gas).toFixed(2),
+    fee,
+    rent,
+    net: +(total - fee + rent).toFixed(2),
   };
 }
 
-export const WALLET_ADDR = "0x7a3f8c2e1b9d4f5e6a8c9b0d3f2e1a4b5c6d7b21c";
-export const WALLET_SHORT = "0x7a3f…b21c";
+// Solana wallet address (base58, ~44 chars).
+export const WALLET_ADDR = "7Y3kHZGpoTGfBMnCtJxZsVw3PgkLPnA5Y6zX9KqhgLYn";
+export const WALLET_SHORT = "7Y3k…gLYn";
 
 export const WALLETS = [
-  { id: "metamask", name: "MetaMask",        emoji: "🦊" },
-  { id: "phantom",  name: "Phantom",         emoji: "👻" },
-  { id: "wc",       name: "WalletConnect",   emoji: "🔗" },
-  { id: "coinbase", name: "Coinbase Wallet", emoji: "🔵" },
+  { id: "phantom",  name: "Phantom",          emoji: "👻" },
+  { id: "solflare", name: "Solflare",         emoji: "🔥" },
+  { id: "backpack", name: "Backpack",         emoji: "🎒" },
+  { id: "sms",      name: "Solana Mobile",    emoji: "📱" },
 ];
 
 export const USER_STATS = {
   totalCleaned: 312.84,
+  rentReclaimed: 28.42, // accumulated across 7 sweeps
   sweeps: 7,
   tokens: 38,
+  signatures: 11, // total signatures across all sweeps (~1.5 tx per sweep)
   streak: 5,
   rank: 1284,
   topPercent: 4,
   referrals: 3,
   earned: 3.0,
 };
-
-// Backwards-compat alias used by older imports
-export const EST_GAS = TOTAL_GAS;

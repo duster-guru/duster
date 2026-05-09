@@ -6,11 +6,11 @@ import { WALLET_SHORT } from "../lib/data";
 import { SCREENS } from "../lib/screens";
 
 const STATUSES = [
-  "Scanning wallet…",
-  "Finding dust assets…",
-  "Checking 8 chains…",
-  "Calculating hidden value…",
-  "Sweeping the corners…",
+  "Reading token accounts…",
+  "Checking Token-2022 mints…",
+  "Pricing via Jupiter…",
+  "Calculating reclaimable rent…",
+  "Filtering routable dust…",
 ];
 const ease = [0.16, 1, 0.3, 1];
 const TOTAL_MS = 3800;
@@ -99,7 +99,7 @@ export default function Scan({ go }) {
         <div className="w-full mt-6 px-2 flex flex-col gap-2">
           <ProgressBar value={progress} />
           <div className="flex items-center justify-between text-[12px] font-mono text-text-muted">
-            <span>Cross-chain scan</span>
+            <span>Solana mainnet</span>
             <span>{Math.round(progress)}%</span>
           </div>
         </div>
