@@ -1,8 +1,9 @@
+import { useWallet } from "@solana/wallet-adapter-react";
 import { motion } from "framer-motion";
 import { Check, Copy, Download } from "lucide-react";
 import { useMemo, useState } from "react";
 import { BackButton, GlassButton, MicroLabel } from "../components/UI";
-import { GROUPS, DUST_TOKENS, getTotalsFor, WALLET_SHORT } from "../lib/data";
+import { ALL_GROUP_IDS, GROUPS, summarizeGroups } from "../lib/solana/groups";
 import { SCREENS } from "../lib/screens";
 import { haptic } from "../lib/haptics";
 
@@ -15,23 +16,33 @@ const STYLES = [
   { id: "vapor",   name: "Vapor",   bg: "linear-gradient(160deg, #1a0820 0%, #08060d 100%)", accent: "#FF4FD8" },
 ];
 
-export default function Share({ go, selectedGroups }) {
+export default function Share({ go, scan, exec, filteredDust }) {
+  const { publicKey } = useWallet();
   const [styleIdx, setStyleIdx] = useState(0);
   const [copied, setCopied] = useState(false);
   const style = STYLES[styleIdx];
 
-  const totals = useMemo(() => getTotalsFor(selectedGroups), [selectedGroups]);
-  const visibleTokens = useMemo(
-    () => DUST_TOKENS.filter((t) => selectedGroups.includes(t.group)),
-    [selectedGroups]
+  const usdcBefore = scan.usdcBefore || 0;
+  const usdcAfter = exec.usdcAfter ?? usdcBefore;
+  const delta = +(usdcAfter - usdcBefore).toFixed(2);
+
+  const tokenCount = filteredDust.length;
+  const groupSummaries = useMemo(
+    () => summarizeGroups(filteredDust, ALL_GROUP_IDS),
+    [filteredDust]
   );
+  const presentGroupIds = groupSummaries.map((g) => g.id);
+
+  const walletShort = publicKey
+    ? `${publicKey.toBase58().slice(0, 4)}…${publicKey.toBase58().slice(-4)}`
+    : "";
 
   const onCopy = async () => {
     haptic.medium?.();
     try {
       await navigator.clipboard.writeText("https://sweep.app/r/4F7K");
     } catch {
-      // clipboard unavailable; fail silently for prototype
+      // clipboard unavailable; fail silently
     }
     setCopied(true);
     setTimeout(() => setCopied(false), 1600);
@@ -40,7 +51,7 @@ export default function Share({ go, selectedGroups }) {
   const onPostX = () => {
     haptic.medium?.();
     const text = encodeURIComponent(
-      `Just swept $${totals.total.toFixed(2)} of dust + reclaimed $${totals.rent.toFixed(2)} of unused SOL rent. one signature, no approvals. only on solana ✨ try yours: sweep.app/r/4F7K`
+      `Just swept $${delta.toFixed(2)} of dust from my Solana wallet. one signature, no approvals. only on solana ✨ try yours: sweep.app/r/4F7K`
     );
     window.open(`https://x.com/intent/post?text=${text}`, "_blank");
   };
@@ -48,7 +59,7 @@ export default function Share({ go, selectedGroups }) {
   return (
     <div className="relative w-full h-full">
       <BackButton onClick={() => go(SCREENS.SUCCESS)} />
-      <div className="relative z-10 h-full flex flex-col pt-16 pb-6 px-5 overflow-y-auto no-scrollbar">
+      <div className="relative z-10 h-full flex flex-col pt-10 pb-6 px-5 overflow-y-auto no-scrollbar">
         <motion.h2
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
@@ -89,13 +100,10 @@ export default function Share({ go, selectedGroups }) {
 
           <div className="relative h-full flex flex-col p-6 z-10">
             <div className="flex items-center justify-between">
-              <span
-                className="font-display text-[14px] font-bold tracking-[0.32em]"
-                style={{ color: style.accent }}
-              >
+              <span className="font-display text-[14px] font-bold tracking-[0.32em]" style={{ color: style.accent }}>
                 SWEEP
               </span>
-              <span className="font-mono text-[10px] text-white/40">{WALLET_SHORT}</span>
+              <span className="font-mono text-[10px] text-white/40">{walletShort}</span>
             </div>
 
             <div className="flex-1 flex flex-col items-center justify-center text-center -mt-2">
@@ -113,23 +121,22 @@ export default function Share({ go, selectedGroups }) {
                   fontFamily: "JetBrains Mono, monospace",
                 }}
               >
-                ${totals.total.toFixed(2)}
+                ${delta.toFixed(2)}
               </div>
               <div className="text-[15px] text-white/80 max-w-[240px]">
-                hidden in my wallet.
+                hidden in my Solana wallet.
               </div>
 
               <div className="my-5 flex items-center gap-2 w-full">
                 <div className="flex-1 h-px bg-white/15" />
                 <div className="text-[10px] uppercase tracking-[0.2em] text-white/50 font-semibold">
-                  {totals.tokenCount} tokens · 1 signature
+                  {tokenCount} tokens · 1 signature
                 </div>
                 <div className="flex-1 h-px bg-white/15" />
               </div>
 
-              {/* Group row */}
               <div className="flex gap-3 justify-center items-center">
-                {selectedGroups.map((id) => {
+                {presentGroupIds.map((id) => {
                   const g = GROUPS[id];
                   return (
                     <div key={id} className="flex flex-col items-center gap-1">
@@ -150,31 +157,23 @@ export default function Share({ go, selectedGroups }) {
                 })}
               </div>
 
-              {/* Token icons row */}
               <div className="flex gap-1 justify-center flex-wrap mt-4 max-w-[220px]">
-                {visibleTokens.slice(0, 8).map((t) => (
+                {filteredDust.slice(0, 8).map((t) => (
                   <div
-                    key={`${t.group}-${t.symbol}`}
+                    key={t.ata}
                     className="w-5 h-5 rounded-full"
                     style={{
-                      background: `linear-gradient(135deg, ${t.color}, ${t.color}99)`,
+                      background: t.logoURI ? `url(${t.logoURI}) center/cover` : `linear-gradient(135deg, ${t.color}, ${t.color}99)`,
                       boxShadow: `0 0 6px ${t.color}66`,
                       border: "1px solid rgba(255,255,255,0.15)",
                     }}
                   />
                 ))}
-                {visibleTokens.length > 8 && (
+                {filteredDust.length > 8 && (
                   <div className="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center text-[7px] font-mono text-white/70">
-                    +{visibleTokens.length - 8}
+                    +{filteredDust.length - 8}
                   </div>
                 )}
-              </div>
-
-              {/* Rent line on the share card */}
-              <div className="mt-3 px-2.5 py-1 rounded-full" style={{ background: "rgba(255,210,122,0.12)", border: "1px solid rgba(255,210,122,0.3)" }}>
-                <span className="text-[10px] uppercase tracking-wider font-bold" style={{ color: "#FFD27A" }}>
-                  +${totals.rent.toFixed(2)} rent reclaimed
-                </span>
               </div>
             </div>
 
@@ -182,10 +181,7 @@ export default function Share({ go, selectedGroups }) {
               <span className="text-[11px] uppercase tracking-[0.16em] text-white/40 font-semibold">
                 sweep.app
               </span>
-              <span
-                className="text-[11px] font-bold uppercase tracking-[0.18em]"
-                style={{ color: style.accent }}
-              >
+              <span className="text-[11px] font-bold uppercase tracking-[0.18em]" style={{ color: style.accent }}>
                 Try yours →
               </span>
             </div>
