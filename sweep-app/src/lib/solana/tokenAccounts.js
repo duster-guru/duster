@@ -1,5 +1,6 @@
-import { PublicKey } from "@solana/web3.js";
+import { LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
 import { TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID } from "@solana/spl-token";
+import { WSOL_MINT } from "../config";
 
 /**
  * Fetch every SPL token account owned by `owner` across both the legacy
@@ -72,4 +73,18 @@ export async function fetchUsdcBalance(connection, owner, usdcMint) {
   );
   if (!accounts.value.length) return 0;
   return Number(accounts.value[0].account.data.parsed.info.tokenAmount.uiAmount || 0);
+}
+
+/**
+ * Fetch the user's balance for whichever output mint they're sweeping into.
+ * Native SOL is read from getBalance and divided to whole SOL units; other
+ * mints go through the parsed token-account path.
+ */
+export async function fetchOutputBalance(connection, owner, outputMint) {
+  const ownerPk = owner instanceof PublicKey ? owner : new PublicKey(owner);
+  if (outputMint.equals(WSOL_MINT)) {
+    const lamports = await connection.getBalance(ownerPk, "confirmed");
+    return lamports / LAMPORTS_PER_SOL;
+  }
+  return fetchUsdcBalance(connection, ownerPk, outputMint);
 }

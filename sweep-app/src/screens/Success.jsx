@@ -5,18 +5,19 @@ import { useEffect, useMemo } from "react";
 import Particles from "../components/Particles";
 import { GhostButton, HeroGlassCard, MicroLabel, PrimaryButton } from "../components/UI";
 import { ALL_GROUP_IDS, summarizeGroups } from "../lib/solana/groups";
+import { getOutputAsset } from "../lib/solana/outputs";
 import { SCREENS } from "../lib/screens";
 import { haptic } from "../lib/haptics";
 
 const ease = [0.16, 1, 0.3, 1];
 
-export default function Success({ go, scan, exec, filteredDust, sweepMode }) {
-  // Real before/after delta from RPC re-fetch on the destination mint
-  // (USDC by default, or SWEEP if sweepMode was on).
+export default function Success({ go, scan, exec, filteredDust, outputAsset }) {
+  const asset = getOutputAsset(outputAsset);
+  // Real before/after delta from RPC re-fetch on the destination mint.
   const before = exec.destBefore ?? scan.usdcBefore ?? 0;
   const after = exec.destAfter ?? before;
   const delta = +(after - before).toFixed(2);
-  const assetName = sweepMode ? "$SWEEP" : "USDC";
+  const assetName = asset.symbol;
 
   // Group breakdown from the dust we actually swept.
   const groupSummaries = useMemo(
@@ -140,17 +141,13 @@ export default function Success({ go, scan, exec, filteredDust, sweepMode }) {
                     <motion.div
                       className="w-[48px] h-[48px] rounded-full flex items-center justify-center font-display font-bold text-[9px] text-void"
                       style={{
-                        background: sweepMode
-                          ? "radial-gradient(circle at 30% 30%, #FF4FD8, #B5208F)"
-                          : "radial-gradient(circle at 30% 30%, #7CFFB2, #4DA877)",
-                        boxShadow: sweepMode
-                          ? "0 0 16px rgba(255,79,216,0.6)"
-                          : "0 0 16px rgba(124,255,178,0.6)",
+                        background: `radial-gradient(circle at 30% 30%, ${asset.color}, ${asset.color}aa)`,
+                        boxShadow: `0 0 16px ${asset.accent},0.6)`,
                       }}
                       animate={{ scale: [1, 1.04, 1] }}
                       transition={{ duration: 2, repeat: Infinity, ease: "easeInOut", delay: i * 0.2 }}
                     >
-                      {sweepMode ? "SWEEP" : "USDC"}
+                      {asset.symbol.replace("$", "")}
                     </motion.div>
                   </div>
                   <div className="text-[9px] font-display font-bold uppercase tracking-wider" style={{ color: f.color }}>

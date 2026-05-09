@@ -13,9 +13,8 @@ export const COMMITMENT = "confirmed";
 export const USDC_MINT = new PublicKey("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
 export const WSOL_MINT = new PublicKey("So11111111111111111111111111111111111111112");
 
-// $SWEEP token — opt-in destination for the "+10% bonus" mode. The bonus
-// itself is a protocol-funded airdrop paid post-sweep (Jupiter only delivers
-// market price). Set VITE_SWEEP_MINT to enable the toggle in the UI.
+// $SWEEP token mint — env-driven. Required to enable the SWEEP destination
+// option in the UI; without it the picker only offers USDC and SOL.
 export const SWEEP_MINT = (() => {
   const raw = import.meta.env.VITE_SWEEP_MINT?.trim();
   if (!raw) return null;
@@ -26,7 +25,29 @@ export const SWEEP_MINT = (() => {
     return null;
   }
 })();
-export const SWEEP_BONUS_BPS = 1000; // 10% display bonus; settled off-band
+
+// Per-destination platform fee (basis points). Lower fee on $SWEEP is the
+// loyalty incentive for holders.
+export const FEE_BPS = {
+  usdc:  500, // 5%
+  sol:   400, // 4%
+  sweep: 300, // 3%
+};
+
+// Wallet that owns the per-output-mint ATAs that collect Jupiter platform
+// fees. When unset, the fee is displayed in the UI but NOT actually
+// diverted (Jupiter ignores platformFeeBps without a feeAccount).
+//   echo 'VITE_FEE_AUTHORITY=<base58 owner pubkey>' >> .env.local
+export const FEE_AUTHORITY = (() => {
+  const raw = import.meta.env.VITE_FEE_AUTHORITY?.trim();
+  if (!raw) return null;
+  try {
+    return new PublicKey(raw);
+  } catch {
+    console.warn("[config] VITE_FEE_AUTHORITY is not a valid base58 pubkey:", raw);
+    return null;
+  }
+})();
 
 // Dust threshold: any token whose USD value is < this gets surfaced.
 // Tunable per UX. Solana dust is typically <$5.
