@@ -7,7 +7,7 @@ import CountUp from "../components/CountUp";
 import { GhostButton, HeroGlassCard, MicroLabel, PrimaryButton, TokenIcon } from "../components/UI";
 import { ALL_GROUP_IDS, summarizeGroups, totalsFor } from "../lib/solana/groups";
 import { getAvailableOutputs, getOutputAsset } from "../lib/solana/outputs";
-import { FEE_AUTHORITY } from "../lib/config";
+import { FEE_AUTHORITY, RENT_PER_ACCOUNT_SOL, SOL_USD_REF } from "../lib/config";
 import { SCREENS } from "../lib/screens";
 import { haptic } from "../lib/haptics";
 
@@ -29,10 +29,35 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups, o
 
   const availableOutputs = useMemo(() => getAvailableOutputs(), []);
   const asset = getOutputAsset(outputAsset);
+
+  // -----------------------------------------------------------------------
+  // Two independent accounting buckets — DO NOT merge unless output is SOL.
+  //
+  //   1. SWAP MATH  (Jupiter side)
+  //        gross dust value − platform fee − network fee = swap output
+  //        Output unit = the selected asset (USDC, SOL, or $SWEEP).
+  //
+  //   2. RENT RECLAIM  (close-account side, ALWAYS native SOL)
+  //        N closed ATAs × 0.00203928 SOL each = reclaimed SOL
+  //        This is user-owned SOL previously locked for rent exemption.
+  //        Goes back to the wallet as native SOL regardless of output asset.
+  //
+  // The user's "total value unlocked" is the USD sum of both, but the two
+  // amounts arrive in *different* assets and must be displayed separately.
+  // -----------------------------------------------------------------------
   const platformFeeUsd = +(totals.total * (asset.feeBps / 10_000)).toFixed(2);
-  const networkFee = 0.01;
-  const rentReclaim = +(totals.tokenCount * 0.31).toFixed(2);
-  const youReceive = +(totals.total - platformFeeUsd - networkFee + rentReclaim).toFixed(2);
+  const networkFeeUsd = 0.01;
+  const swapOutputUsd = +(totals.total - platformFeeUsd - networkFeeUsd).toFixed(2);
+
+  const rentReclaimSol = +(totals.tokenCount * RENT_PER_ACCOUNT_SOL).toFixed(6);
+  const rentReclaimUsd = +(rentReclaimSol * SOL_USD_REF).toFixed(2);
+
+  // SOL output: rent SOL aggregates with swap-output SOL into one balance.
+  // USDC / SWEEP output: rent SOL stays separate as a native-SOL line.
+  const outputIsSol = asset.id === "sol";
+  const swapOutputSol = outputIsSol ? +(swapOutputUsd / SOL_USD_REF).toFixed(6) : null;
+  const totalSolReceived = outputIsSol ? +(swapOutputSol + rentReclaimSol).toFixed(6) : null;
+  const totalUnlockedUsd = +(swapOutputUsd + rentReclaimUsd).toFixed(2);
 
   const toggleGroup = (id) => {
     if (!presentGroupIds.includes(id)) return;
@@ -141,30 +166,76 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups, o
             {totals.groupCount === 1 ? "tx" : "txs"}
           </div>
 
-          {/* Net receivable pill — what the user actually gets after fees + rent
-              reclaim, in the currently selected output asset's color. */}
+          {/* Net receivable pills.
+                SOL output: ONE pill — swap output + rent reclaim aggregate.
+                USDC/SWEEP: TWO pills — swap output (in asset) + rent (SOL),
+                because these arrive as different assets and must not be
+                conflated as a single number. */}
           <motion.div
-            key={`pill-${asset.id}`}
-            initial={{ opacity: 0, y: 6, scale: 0.96 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
+            key={`pills-${asset.id}`}
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.32, ease }}
-            className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full"
-            style={{
-              background: `${asset.accent},0.12)`,
-              border: `1px solid ${asset.accent},0.45)`,
-              boxShadow: `0 0 14px ${asset.accent},0.30)`,
-            }}
+            className="mt-3 flex flex-wrap items-center justify-center gap-1.5"
           >
-            <ArrowRight size={12} style={{ color: asset.color }} strokeWidth={2.5} />
-            <span className="text-[12px] font-display font-bold" style={{ color: asset.color }}>
-              you get ~${youReceive.toFixed(2)}
-            </span>
-            <span
-              className="text-[10px] uppercase tracking-wider font-bold"
-              style={{ color: asset.color, opacity: 0.85 }}
-            >
-              {asset.symbol}
-            </span>
+            {outputIsSol ? (
+              <span
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full"
+                style={{
+                  background: `${asset.accent},0.12)`,
+                  border: `1px solid ${asset.accent},0.45)`,
+                  boxShadow: `0 0 14px ${asset.accent},0.30)`,
+                }}
+              >
+                <ArrowRight size={12} style={{ color: asset.color }} strokeWidth={2.5} />
+                <span className="text-[12px] font-display font-bold" style={{ color: asset.color }}>
+                  ~{totalSolReceived?.toFixed(4)} SOL
+                </span>
+                <span
+                  className="text-[10px] uppercase tracking-wider font-bold opacity-80"
+                  style={{ color: asset.color }}
+                >
+                  ~${totalUnlockedUsd.toFixed(2)}
+                </span>
+              </span>
+            ) : (
+              <>
+                <span
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full"
+                  style={{
+                    background: `${asset.accent},0.12)`,
+                    border: `1px solid ${asset.accent},0.45)`,
+                    boxShadow: `0 0 14px ${asset.accent},0.30)`,
+                  }}
+                >
+                  <ArrowRight size={12} style={{ color: asset.color }} strokeWidth={2.5} />
+                  <span className="text-[12px] font-display font-bold" style={{ color: asset.color }}>
+                    ~${swapOutputUsd.toFixed(2)}
+                  </span>
+                  <span
+                    className="text-[10px] uppercase tracking-wider font-bold opacity-80"
+                    style={{ color: asset.color }}
+                  >
+                    {asset.symbol}
+                  </span>
+                </span>
+                <span
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full"
+                  style={{
+                    background: "rgba(255,210,122,0.10)",
+                    border: "1px solid rgba(255,210,122,0.40)",
+                  }}
+                >
+                  <span className="text-gold text-[11px] font-bold">+</span>
+                  <span className="text-[12px] font-display font-bold text-gold tabular-nums">
+                    {rentReclaimSol.toFixed(4)} SOL
+                  </span>
+                  <span className="text-[10px] uppercase tracking-wider text-gold opacity-80 font-bold">
+                    rent
+                  </span>
+                </span>
+              </>
+            )}
           </motion.div>
         </motion.div>
 
@@ -407,47 +478,100 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups, o
               )}
             </ul>
 
-            {/* Fee breakdown — three lines now: platform fee, network fee, rent */}
+            {/* SWAP MATH — output asset side */}
             <div className="h-px w-full bg-white/10 my-3" />
-            <div className="flex items-center justify-between py-1">
-              <span className="text-[13px] text-text-secondary flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 mb-1">
+              <MicroLabel>Dust swap</MicroLabel>
+              <span
+                className="text-[9px] font-mono uppercase tracking-wider font-bold ml-auto opacity-80"
+                style={{ color: asset.color }}
+              >
+                → {asset.symbol}
+              </span>
+            </div>
+            <div className="flex items-center justify-between py-0.5">
+              <span className="text-[12px] text-text-secondary">Gross dust value</span>
+              <span className="font-mono text-[12px] text-text-secondary tabular-nums">
+                ${totals.total.toFixed(2)}
+              </span>
+            </div>
+            <div className="flex items-center justify-between py-0.5">
+              <span className="text-[12px] text-text-secondary flex items-center gap-1.5">
                 Platform fee
                 <span
-                  className="text-[10px] font-mono tabular-nums uppercase tracking-wider font-bold"
+                  className="text-[9px] font-mono tabular-nums uppercase tracking-wider font-bold"
                   style={{ color: asset.color }}
                 >
                   {(asset.feeBps / 100).toFixed(0)}%
                 </span>
               </span>
-              <span className="font-mono text-[13px] text-warn tabular-nums">
+              <span className="font-mono text-[12px] text-warn tabular-nums">
                 −${platformFeeUsd.toFixed(2)}
               </span>
             </div>
-            <div className="flex items-center justify-between py-1">
-              <span className="text-[13px] text-text-secondary">Network + priority fee</span>
-              <span className="font-mono text-[13px] text-text-muted tabular-nums">
-                ~${networkFee.toFixed(2)}
+            <div className="flex items-center justify-between py-0.5">
+              <span className="text-[12px] text-text-secondary">Network + priority fee</span>
+              <span className="font-mono text-[12px] text-text-muted tabular-nums">
+                ~${networkFeeUsd.toFixed(2)}
               </span>
             </div>
-            <div className="flex items-center justify-between py-1">
-              <span className="text-[13px] text-text-secondary flex items-center gap-1.5">
-                Rent reclaim
-                <span className="text-[10px] uppercase tracking-wider text-sweep font-bold">free SOL</span>
-              </span>
-              <span className="font-mono text-[13px] text-sweep tabular-nums">
-                +~${rentReclaim.toFixed(2)}
+            <div className="flex items-center justify-between py-0.5 mt-0.5">
+              <span className="text-[12px] text-text-primary font-semibold">Swap output</span>
+              <span className="font-mono text-[13px] font-bold tabular-nums" style={{ color: asset.color }}>
+                ~${swapOutputUsd.toFixed(2)}{" "}
+                <span className="text-[10px] uppercase tracking-wider opacity-80">{asset.symbol}</span>
               </span>
             </div>
+
+            {/* RENT RECLAIM — separate accounting, ALWAYS native SOL */}
+            <div className="h-px w-full bg-white/10 my-3" />
+            <div className="flex items-center gap-1.5 mb-1">
+              <MicroLabel color="gold">Rent reclaim</MicroLabel>
+              <span className="text-[9px] font-mono uppercase tracking-wider font-bold text-gold opacity-80 ml-auto">
+                → SOL
+              </span>
+            </div>
+            <div className="flex items-center justify-between py-0.5">
+              <span className="text-[12px] text-text-secondary">
+                Closing {totals.tokenCount} ATA{totals.tokenCount === 1 ? "" : "s"}
+              </span>
+              <span className="font-mono text-[12px] text-gold tabular-nums">
+                +{rentReclaimSol.toFixed(4)} SOL
+              </span>
+            </div>
+            <div className="flex items-center justify-between py-0.5">
+              <span className="text-[11px] text-text-muted leading-snug max-w-[200px]">
+                User-owned SOL previously locked for rent. Returned to your wallet.
+              </span>
+              <span className="font-mono text-[11px] text-text-muted tabular-nums">
+                ≈ +${rentReclaimUsd.toFixed(2)}
+              </span>
+            </div>
+
+            {/* TOTAL — clearly labeled as USD aggregate of two assets */}
             <div className="h-px w-full bg-white/10 my-2" />
-            <div className="flex items-center justify-between py-1">
-              <span className="text-[13px] text-text-primary font-semibold">You receive (est.)</span>
-              <span className="font-mono text-[14px] font-bold tabular-nums" style={{ color: asset.color }}>
-                ~${youReceive.toFixed(2)}{" "}
-                <span className="text-[10px] uppercase tracking-wider opacity-80">
-                  {asset.symbol}
+            {outputIsSol ? (
+              <div className="flex items-center justify-between py-1">
+                <span className="text-[13px] text-text-primary font-semibold">
+                  You receive (est.)
                 </span>
-              </span>
-            </div>
+                <span className="font-mono text-[14px] font-bold tabular-nums" style={{ color: asset.color }}>
+                  ~{totalSolReceived?.toFixed(4)} SOL
+                  <span className="text-[10px] uppercase tracking-wider opacity-80 ml-1">
+                    ~${totalUnlockedUsd.toFixed(2)}
+                  </span>
+                </span>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between py-1">
+                <span className="text-[13px] text-text-primary font-semibold">
+                  Total value unlocked
+                </span>
+                <span className="font-mono text-[14px] font-bold text-sweep tabular-nums">
+                  ~${totalUnlockedUsd.toFixed(2)}
+                </span>
+              </div>
+            )}
             {!FEE_AUTHORITY && (
               <div className="mt-2 text-[10px] text-text-muted leading-snug">
                 Fee account not configured — set <span className="font-mono">VITE_FEE_AUTHORITY</span> to actually collect the platform fee. Display only for now.

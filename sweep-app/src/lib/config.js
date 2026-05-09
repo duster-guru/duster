@@ -67,6 +67,15 @@ export const PRIORITY_FEE_MICROLAMPORTS = 50_000;
 export const TX_SIZE_LIMIT = 1232;
 export const TX_PACK_BUDGET = 1100;
 
+// Per-ATA rent. Closing an emptied SPL token account refunds this much
+// native SOL to the wallet — it's user-owned SOL that was previously
+// locked for rent exemption, NOT protocol revenue.
+export const RENT_PER_ACCOUNT_SOL = 0.00203928;
+
+// SOL/USD reference for surfacing rent reclaim in dollar terms in the UI.
+// In production, swap to a live price feed (Pyth/Jupiter price API).
+export const SOL_USD_REF = 150;
+
 // Jupiter public endpoints.
 //   Quote v6 + swap-instructions  — atomic-batch composition
 //   Price v3                      — USD valuation (batched, lightweight)
