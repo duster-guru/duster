@@ -1,27 +1,33 @@
 import { useWallet } from "@solana/wallet-adapter-react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowRight, Check, ChevronDown, PenLine, Sparkles } from "lucide-react";
+import { ArrowRight, Check, ChevronDown, PenLine, Sparkles, Zap } from "lucide-react";
 import { useMemo, useState } from "react";
 import Particles from "../components/Particles";
 import CountUp from "../components/CountUp";
 import { GhostButton, GlassButton, HeroGlassCard, MicroLabel, PrimaryButton, TokenIcon } from "../components/UI";
-import { ALL_GROUP_IDS, GROUPS, summarizeGroups, totalsFor } from "../lib/solana/groups";
+import { ALL_GROUP_IDS, summarizeGroups, totalsFor } from "../lib/solana/groups";
 import { SCREENS } from "../lib/screens";
+import { SWEEP_MINT, SWEEP_BONUS_BPS } from "../lib/config";
 import { haptic } from "../lib/haptics";
 
 const ease = [0.16, 1, 0.3, 1];
 
-export default function Results({ go, scan, selectedGroups, setSelectedGroups }) {
+export default function Results({ go, scan, selectedGroups, setSelectedGroups, sweepMode, setSweepMode }) {
   const { disconnect } = useWallet();
   const [revealDone, setRevealDone] = useState(false);
   const [expanded, setExpanded] = useState(false);
 
   const allGroups = useMemo(() => summarizeGroups(scan.dust, ALL_GROUP_IDS), [scan.dust]);
-  const presentGroupIds = allGroups.map((g) => g.id);
+  const presentGroupIds = useMemo(() => allGroups.map((g) => g.id), [allGroups]);
+  const presentGroupKey = presentGroupIds.join(",");
   const totals = useMemo(
     () => totalsFor(scan.dust, selectedGroups.filter((g) => presentGroupIds.includes(g))),
-    [scan.dust, selectedGroups, presentGroupIds.join(",")]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [scan.dust, selectedGroups, presentGroupKey]
   );
+
+  const sweepEnabled = !!SWEEP_MINT;
+  const bonusMultiplier = 1 + SWEEP_BONUS_BPS / 10_000;
 
   const toggleGroup = (id) => {
     if (!presentGroupIds.includes(id)) return;
@@ -43,6 +49,21 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups })
 
   // Empty state — wallet has no dust under threshold
   if (scan.status === "empty" || (scan.status === "ready" && scan.dust.length === 0)) {
+    const d = scan.diag || {};
+    const hasAccounts = (d.nonZeroCount || 0) > 0;
+    const headline = !hasAccounts
+      ? "No tokens to clean"
+      : d.aboveThresholdCount > 0
+      ? "Nothing in the dust range"
+      : "Wallet's already clean";
+    const reason = !hasAccounts
+      ? "This wallet has no non-zero SPL token balances."
+      : d.aboveThresholdCount > 0 && d.pricedCount === d.aboveThresholdCount
+      ? `All ${d.aboveThresholdCount} priced tokens are above the $5 dust threshold — those are real positions, not dust.`
+      : d.pricedCount === 0
+      ? `Found ${d.nonZeroCount} token accounts but Jupiter couldn't price any of them (no liquid market).`
+      : `Found ${d.nonZeroCount} accounts · priced ${d.pricedCount} · ${d.aboveThresholdCount} above $5 · ${d.belowMinCount} below $0.05.`;
+
     return (
       <div className="relative w-full h-full">
         <Particles mode="ambient" count={40} className="opacity-50" />
@@ -54,11 +75,20 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups })
           >
             <Sparkles size={36} className="mx-auto text-sweep mb-3" />
             <h1 className="font-display text-[30px] font-bold text-text-primary leading-tight">
-              Wallet's already clean
+              {headline}
             </h1>
-            <p className="mt-3 text-[14px] text-text-secondary max-w-[280px] mx-auto">
-              No SPL token under the dust threshold. Try another wallet or come back when you've collected some scraps.
+            <p className="mt-3 text-[14px] text-text-secondary max-w-[300px] mx-auto leading-snug">
+              {reason}
             </p>
+
+            {/* Per-bucket counters — useful diagnostics, also confirms RPC + pricing reached */}
+            <div className="mt-5 inline-grid grid-cols-2 gap-x-5 gap-y-1 text-[11px] font-mono text-text-muted">
+              <span className="text-left">accounts</span><span className="text-right tabular-nums">{d.accountCount ?? 0}</span>
+              <span className="text-left">non-zero</span><span className="text-right tabular-nums">{d.nonZeroCount ?? 0}</span>
+              <span className="text-left">priced</span><span className="text-right tabular-nums">{d.pricedCount ?? 0}</span>
+              <span className="text-left">{">$5"}</span><span className="text-right tabular-nums">{d.aboveThresholdCount ?? 0}</span>
+            </div>
+
             <div className="mt-6 flex flex-col gap-2">
               <PrimaryButton onClick={() => { scan.refresh(); }}>Rescan</PrimaryButton>
               <GhostButton onClick={async () => { await disconnect(); go(SCREENS.SPLASH); }}>
@@ -261,13 +291,72 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups })
             </div>
             <div className="h-px w-full bg-white/10 my-2" />
             <div className="flex items-center justify-between py-1">
-              <span className="text-[13px] text-text-primary font-semibold">You receive (est.)</span>
+              <span className="text-[13px] text-text-primary font-semibold">
+                You receive (est.)
+              </span>
               <span className="font-mono text-[14px] text-sweep font-bold tabular-nums">
-                ~${(totals.total + totals.tokenCount * 0.31 - 0.01).toFixed(2)}
+                ~${(
+                  (sweepMode ? totals.total * bonusMultiplier : totals.total) +
+                  totals.tokenCount * 0.31 -
+                  0.01
+                ).toFixed(2)}{" "}
+                <span className="text-[10px] uppercase tracking-wider opacity-80">
+                  {sweepMode ? "SWEEP" : "USDC"}
+                </span>
               </span>
             </div>
           </HeroGlassCard>
         </motion.div>
+
+        {/* +10% SWEEP MODE — magenta opt-in banner */}
+        <motion.button
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.85, ease }}
+          onClick={() => {
+            if (!sweepEnabled) return;
+            haptic.light?.();
+            setSweepMode((s) => !s);
+          }}
+          disabled={!sweepEnabled}
+          className="mt-3 w-full flex items-center gap-3 px-4 py-3 rounded-md text-left disabled:opacity-50"
+          style={{
+            border: `1px solid ${sweepMode ? "rgba(255,79,216,0.6)" : "rgba(255,79,216,0.3)"}`,
+            background: sweepMode
+              ? "linear-gradient(135deg, rgba(255,79,216,0.18), rgba(91,140,255,0.10))"
+              : "rgba(255,79,216,0.06)",
+            boxShadow: sweepMode ? "0 0 24px rgba(255,79,216,0.35)" : "none",
+            cursor: sweepEnabled ? "pointer" : "not-allowed",
+          }}
+        >
+          <span className="w-9 h-9 rounded-full bg-magenta/20 flex items-center justify-center shrink-0">
+            <Zap size={18} className="text-magenta" fill="#FF4FD8" />
+          </span>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="font-display font-semibold text-[14px] text-text-primary">
+                +10% SWEEP MODE
+              </span>
+              <span className="text-[10px] uppercase tracking-wider text-magenta font-bold">
+                Bonus
+              </span>
+            </div>
+            <div className="text-[12px] text-text-secondary leading-snug mt-0.5">
+              {sweepEnabled
+                ? <>Route to <span className="text-magenta font-semibold">$SWEEP</span> — bonus airdropped post-sweep.</>
+                : <>Set <span className="font-mono">VITE_SWEEP_MINT</span> in <span className="font-mono">.env.local</span> to enable.</>}
+            </div>
+          </div>
+          <span
+            className={`relative w-10 h-6 rounded-full transition-colors ${sweepMode ? "bg-magenta" : "bg-white/15"}`}
+          >
+            <motion.span
+              className="absolute top-0.5 w-5 h-5 rounded-full bg-white"
+              animate={{ left: sweepMode ? 18 : 2 }}
+              transition={{ duration: 0.2, ease }}
+            />
+          </span>
+        </motion.button>
 
         <motion.div
           initial={{ opacity: 0, y: 16 }}
@@ -277,14 +366,17 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups })
         >
           <PrimaryButton
             onClick={() => go(SCREENS.CLEANING)}
-            icon={<PenLine size={18} strokeWidth={2.5} />}
+            glow={sweepMode ? "magenta" : "mint"}
+            icon={sweepMode ? <Sparkles size={18} /> : <PenLine size={18} strokeWidth={2.5} />}
             hapticType="medium"
           >
-            Clean · 1 signature
+            {sweepMode ? "Sweep into $SWEEP" : "Clean · 1 signature"}
           </PrimaryButton>
-          <GlassButton onClick={() => go(SCREENS.CLEANING)}>
-            Keep as USDC
-          </GlassButton>
+          {!sweepMode && (
+            <GlassButton onClick={() => go(SCREENS.CLEANING)}>
+              Keep as USDC
+            </GlassButton>
+          )}
           <div className="flex items-center justify-center gap-1.5 text-[11px] text-text-muted">
             <ArrowRight size={11} className="-rotate-45 text-text-muted" />
             <span>Powered by Jupiter · {totals.groupCount} versioned {totals.groupCount === 1 ? "tx" : "txs"}</span>

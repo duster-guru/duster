@@ -10,11 +10,13 @@ import { haptic } from "../lib/haptics";
 
 const ease = [0.16, 1, 0.3, 1];
 
-export default function Success({ go, scan, exec, filteredDust }) {
-  // Real before/after USDC delta from RPC re-fetch.
-  const usdcBefore = scan.usdcBefore || 0;
-  const usdcAfter = exec.usdcAfter ?? usdcBefore;
-  const delta = +(usdcAfter - usdcBefore).toFixed(2);
+export default function Success({ go, scan, exec, filteredDust, sweepMode }) {
+  // Real before/after delta from RPC re-fetch on the destination mint
+  // (USDC by default, or SWEEP if sweepMode was on).
+  const before = exec.destBefore ?? scan.usdcBefore ?? 0;
+  const after = exec.destAfter ?? before;
+  const delta = +(after - before).toFixed(2);
+  const assetName = sweepMode ? "$SWEEP" : "USDC";
 
   // Group breakdown from the dust we actually swept.
   const groupSummaries = useMemo(
@@ -89,9 +91,9 @@ export default function Success({ go, scan, exec, filteredDust }) {
         >
           <HeroGlassCard>
             <div className="flex items-center justify-between mb-2">
-              <MicroLabel>USDC balance</MicroLabel>
+              <MicroLabel>{assetName} balance</MicroLabel>
               <span className="font-mono text-[12px] text-text-muted tabular-nums">
-                ${usdcBefore.toFixed(2)} → ${usdcAfter.toFixed(2)}
+                {before.toFixed(2)} → {after.toFixed(2)}
               </span>
             </div>
 
@@ -99,7 +101,7 @@ export default function Success({ go, scan, exec, filteredDust }) {
               <span className="font-display font-bold text-[40px] text-gradient-found tabular-nums">
                 +${delta.toFixed(2)}
               </span>
-              <span className="text-[14px] text-text-secondary">USDC</span>
+              <span className="text-[14px] text-text-secondary">{assetName}</span>
             </div>
 
             <div className="flex flex-col items-center my-3">
@@ -136,15 +138,19 @@ export default function Success({ go, scan, exec, filteredDust }) {
                   <div className="relative">
                     <div className="absolute inset-0 rounded-full" style={{ width: 48, height: 48, border: `1.5px solid ${f.color}` }} />
                     <motion.div
-                      className="w-[48px] h-[48px] rounded-full flex items-center justify-center font-display font-bold text-[10px] text-void"
+                      className="w-[48px] h-[48px] rounded-full flex items-center justify-center font-display font-bold text-[9px] text-void"
                       style={{
-                        background: "radial-gradient(circle at 30% 30%, #7CFFB2, #4DA877)",
-                        boxShadow: "0 0 16px rgba(124,255,178,0.6)",
+                        background: sweepMode
+                          ? "radial-gradient(circle at 30% 30%, #FF4FD8, #B5208F)"
+                          : "radial-gradient(circle at 30% 30%, #7CFFB2, #4DA877)",
+                        boxShadow: sweepMode
+                          ? "0 0 16px rgba(255,79,216,0.6)"
+                          : "0 0 16px rgba(124,255,178,0.6)",
                       }}
                       animate={{ scale: [1, 1.04, 1] }}
                       transition={{ duration: 2, repeat: Infinity, ease: "easeInOut", delay: i * 0.2 }}
                     >
-                      USDC
+                      {sweepMode ? "SWEEP" : "USDC"}
                     </motion.div>
                   </div>
                   <div className="text-[9px] font-display font-bold uppercase tracking-wider" style={{ color: f.color }}>

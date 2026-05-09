@@ -24,15 +24,16 @@ import {
 } from "./jupiter";
 
 /**
- * Build one or more v0 VersionedTransactions that sweep `dustTokens` to USDC.
+ * Build one or more v0 VersionedTransactions that sweep `dustTokens` to a
+ * single destination mint (USDC by default, or another like $SWEEP).
  *
  * Per dust token (in order):
- *   1. swap input → USDC via Jupiter
+ *   1. swap input → output via Jupiter
  *   2. close the source ATA (refund rent as native SOL to user)
  *
  * Common to every tx:
  *   - ComputeBudget: setComputeUnitLimit + setComputeUnitPrice
- *   - First tx only: ATA-create (idempotent) for the user's USDC account
+ *   - First tx only: ATA-create (idempotent) for the user's destination ATA
  *
  * Packs into ~1100 bytes per tx (margin under the 1232 hard limit). When a
  * candidate ix overflows the current tx, we finalize it and start a fresh one.
@@ -44,6 +45,7 @@ export async function buildSweepTransactions({
   user,
   dustTokens, // [{ mint, ata, amount(BigInt), decimals, programId }]
   recentBlockhash,
+  outputMint = USDC_MINT, // PublicKey of destination
 }) {
   if (!dustTokens.length) return { transactions: [], plan: [] };
   if (!recentBlockhash) {
@@ -51,10 +53,10 @@ export async function buildSweepTransactions({
     recentBlockhash = blockhash;
   }
 
-  // Compute the user's USDC ATA once. Whether it exists yet or not, we use
-  // createAssociatedTokenAccountIdempotent on the first tx so it's safe.
-  const userUsdcAta = getAssociatedTokenAddressSync(
-    USDC_MINT,
+  // Compute the user's destination ATA once. Whether it exists yet or not,
+  // we use createAssociatedTokenAccountIdempotent on the first tx so it's safe.
+  const userDestAta = getAssociatedTokenAddressSync(
+    outputMint,
     user,
     false,
     TOKEN_PROGRAM_ID
@@ -69,12 +71,13 @@ export async function buildSweepTransactions({
       const quote = await fetchQuote({
         inputMint: t.mint,
         amountRaw: t.amount,
+        outputMint: outputMint.toBase58(),
         slippageBps: undefined, // use default
       });
       swapJson = await fetchSwapInstructions({
         quoteResponse: quote,
         userPublicKey: user,
-        destinationTokenAccount: userUsdcAta,
+        destinationTokenAccount: userDestAta,
       });
     } catch (err) {
       // No route or rate-limited — surface to caller, skip this token
@@ -124,7 +127,7 @@ export async function buildSweepTransactions({
   const transactions = [];
   const plan = [];
   let txIdx = 0;
-  let currentIxs = baseInstructions({ user, userUsdcAta, includeAtaCreate: true });
+  let currentIxs = baseInstructions({ user, userDestAta, outputMint, includeAtaCreate: true });
   let currentAltSet = new Set();
 
   const finalize = () => {
@@ -160,7 +163,7 @@ export async function buildSweepTransactions({
     if (size > TX_PACK_BUDGET && currentIxs.length > baseInstructions({}).length) {
       // Flush current, start fresh
       finalize();
-      currentIxs = baseInstructions({ user, userUsdcAta, includeAtaCreate: false });
+      currentIxs = baseInstructions({ user, userDestAta, outputMint, includeAtaCreate: false });
       currentAltSet = new Set();
     }
     currentIxs.push(...p.ixs);
@@ -172,20 +175,20 @@ export async function buildSweepTransactions({
   return { transactions, plan };
 }
 
-function baseInstructions({ user, userUsdcAta, includeAtaCreate = false } = {}) {
+function baseInstructions({ user, userDestAta, outputMint = USDC_MINT, includeAtaCreate = false } = {}) {
   const ixs = [
     ComputeBudgetProgram.setComputeUnitLimit({ units: 1_400_000 }),
     ComputeBudgetProgram.setComputeUnitPrice({
       microLamports: PRIORITY_FEE_MICROLAMPORTS,
     }),
   ];
-  if (includeAtaCreate && user && userUsdcAta) {
+  if (includeAtaCreate && user && userDestAta) {
     ixs.push(
       createAssociatedTokenAccountIdempotentInstruction(
         user,           // payer
-        userUsdcAta,    // ata
+        userDestAta,    // ata
         user,           // owner
-        USDC_MINT,
+        outputMint,
         TOKEN_PROGRAM_ID
       )
     );
