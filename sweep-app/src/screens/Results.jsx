@@ -132,11 +132,40 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups, o
               onDone={() => { if (!revealDone) { haptic.medium?.(); setRevealDone(true); } }}
             />
           </div>
-          <div className="mt-2 text-[14px] text-text-secondary">
+          <div className="mt-1.5 text-[12px] text-text-muted uppercase tracking-[0.16em] font-semibold">
+            gross dust value
+          </div>
+          <div className="mt-1 text-[12px] text-text-secondary">
             <span className="font-mono tabular-nums">{totals.tokenCount}</span> tokens ·{" "}
             <span className="font-mono tabular-nums">{totals.groupCount}</span>{" "}
             {totals.groupCount === 1 ? "tx" : "txs"}
           </div>
+
+          {/* Net receivable pill — what the user actually gets after fees + rent
+              reclaim, in the currently selected output asset's color. */}
+          <motion.div
+            key={`pill-${asset.id}`}
+            initial={{ opacity: 0, y: 6, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ duration: 0.32, ease }}
+            className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full"
+            style={{
+              background: `${asset.accent},0.12)`,
+              border: `1px solid ${asset.accent},0.45)`,
+              boxShadow: `0 0 14px ${asset.accent},0.30)`,
+            }}
+          >
+            <ArrowRight size={12} style={{ color: asset.color }} strokeWidth={2.5} />
+            <span className="text-[12px] font-display font-bold" style={{ color: asset.color }}>
+              you get ~${youReceive.toFixed(2)}
+            </span>
+            <span
+              className="text-[10px] uppercase tracking-wider font-bold"
+              style={{ color: asset.color, opacity: 0.85 }}
+            >
+              {asset.symbol}
+            </span>
+          </motion.div>
         </motion.div>
 
         {/* Group chips */}
