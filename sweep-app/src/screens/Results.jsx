@@ -156,17 +156,11 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups, o
           transition={{ duration: 0.45, delay: 0.1, ease }}
           className="flex items-center justify-center gap-2"
         >
-          <MicroLabel color="gold">We found hidden money</MicroLabel>
           <span
-            className="text-[9px] font-mono uppercase tracking-[0.2em] font-bold px-2 py-0.5 rounded-full"
-            style={{
-              background: "rgba(255,210,122,0.10)",
-              border: "1px solid rgba(255,210,122,0.30)",
-              color: "#FFD27A",
-            }}
-            title="Dust threshold — only tokens valued under this are surfaced"
+            title={`Dust = tokens valued under $${DUST_THRESHOLD_USD}. Anything above is treated as a real position and skipped.`}
+            className="cursor-help"
           >
-            DUST &lt; ${DUST_THRESHOLD_USD}
+            <MicroLabel color="gold">We found hidden money</MicroLabel>
           </span>
           <button
             onClick={() => { haptic.light?.(); scan.refreshPrices?.(); }}
@@ -426,16 +420,18 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups, o
           </div>
         </motion.div>
 
-        {/* SWEEP holder benefits — only when SWEEP is selected */}
-        <AnimatePresence>
-          {asset.id === "sweep" && asset.benefits && (
+        {/* SWEEP holder benefits — advanced mode only.
+            Animation: simple opacity+y fade, no height-auto (avoids the
+            mid-animation clipping bug when user toggles between cards). */}
+        <AnimatePresence mode="wait">
+          {!simpleMode && asset.id === "sweep" && asset.benefits && (
             <motion.div
               key="sweep-benefits"
-              initial={{ opacity: 0, height: 0, marginTop: 0 }}
-              animate={{ opacity: 1, height: "auto", marginTop: 12 }}
-              exit={{ opacity: 0, height: 0, marginTop: 0 }}
-              transition={{ duration: 0.32, ease }}
-              className="overflow-hidden"
+              initial={{ opacity: 0, y: -6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.28, ease }}
+              className="mt-3"
             >
               <div
                 className="rounded-md p-4"
