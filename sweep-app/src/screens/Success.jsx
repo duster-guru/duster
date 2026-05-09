@@ -5,8 +5,8 @@ import { useEffect, useMemo } from "react";
 import Particles from "../components/Particles";
 import { GhostButton, HeroGlassCard, MicroLabel, PrimaryButton } from "../components/UI";
 import { ALL_GROUP_IDS, summarizeGroups } from "../lib/solana/groups";
-import { formatTokenAmount, getOutputAsset } from "../lib/solana/outputs";
-import { RENT_PER_ACCOUNT_SOL, SOL_USD_REF } from "../lib/config";
+import { formatTokenAmount, getEffectivePrice, getOutputAsset } from "../lib/solana/outputs";
+import { RENT_PER_ACCOUNT_SOL } from "../lib/config";
 import { SCREENS } from "../lib/screens";
 import { haptic } from "../lib/haptics";
 
@@ -15,12 +15,11 @@ const ease = [0.16, 1, 0.3, 1];
 export default function Success({ go, scan, exec, filteredDust, outputAsset }) {
   const asset = getOutputAsset(outputAsset);
   const outputIsSol = asset.id === "sol";
+  const livePrices = scan.outputPrices;
+  const livePriceSol = getEffectivePrice(getOutputAsset("sol"), livePrices);
+  const livePriceAsset = getEffectivePrice(asset, livePrices);
 
   // Real on-chain delta on the destination mint.
-  // - For USDC / SWEEP output: this is the swap output ONLY. Rent reclaim
-  //   went separately to native SOL and is NOT reflected here.
-  // - For SOL output: this delta INCLUDES rent reclaim, since both arrive
-  //   as native SOL on the same balance.
   const before = exec.destBefore ?? 0;
   const after = exec.destAfter ?? before;
   const destDelta = +(after - before).toFixed(6);
@@ -29,15 +28,15 @@ export default function Success({ go, scan, exec, filteredDust, outputAsset }) {
   // emptied SPL token ATAs — user-owned SOL, not protocol revenue.
   const tokenCount = filteredDust.length;
   const rentReclaimSol = +(tokenCount * RENT_PER_ACCOUNT_SOL).toFixed(6);
-  const rentReclaimUsd = +(rentReclaimSol * SOL_USD_REF).toFixed(2);
+  const rentReclaimUsd = +(rentReclaimSol * livePriceSol).toFixed(2);
 
   // Swap output isolated (subtracting rent only when output IS SOL).
   const swapOutputAsset = outputIsSol
     ? +(destDelta - rentReclaimSol).toFixed(6)
     : destDelta;
   const swapOutputUsd = outputIsSol
-    ? +(swapOutputAsset * SOL_USD_REF).toFixed(2)
-    : swapOutputAsset;
+    ? +(swapOutputAsset * livePriceSol).toFixed(2)
+    : +(swapOutputAsset * livePriceAsset).toFixed(2);
   const totalUnlockedUsd = +(swapOutputUsd + rentReclaimUsd).toFixed(2);
 
   // Group breakdown from the dust we actually swept.
@@ -138,7 +137,7 @@ export default function Success({ go, scan, exec, filteredDust, outputAsset }) {
               </div>
               <div className="flex items-baseline justify-center gap-1.5">
                 <span className="font-display font-bold text-[28px] tabular-nums" style={{ color: asset.color }}>
-                  +{formatTokenAmount(swapOutputAsset, asset)}
+                  +{formatTokenAmount(swapOutputAsset, asset, livePrices)}
                 </span>
                 <span className="text-[12px] opacity-80" style={{ color: asset.color }}>
                   {asset.symbol}
