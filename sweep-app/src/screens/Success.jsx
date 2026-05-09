@@ -1,18 +1,18 @@
 import confetti from "canvas-confetti";
 import { motion } from "framer-motion";
-import { ArrowRight, Sparkles } from "lucide-react";
+import { ArrowRight, PenLine, Sparkles } from "lucide-react";
 import { useEffect, useMemo } from "react";
 import Particles from "../components/Particles";
 import { GhostButton, HeroGlassCard, MicroLabel, PrimaryButton } from "../components/UI";
-import { getChainSummary, getTotalsFor } from "../lib/data";
+import { getGroupSummary, getTotalsFor } from "../lib/data";
 import { SCREENS } from "../lib/screens";
 import { haptic } from "../lib/haptics";
 
 const ease = [0.16, 1, 0.3, 1];
 
-export default function Success({ go, sweepMode, selectedChains }) {
-  const totals = useMemo(() => getTotalsFor(selectedChains), [selectedChains]);
-  const chainSummaries = useMemo(() => getChainSummary(selectedChains), [selectedChains]);
+export default function Success({ go, sweepMode, selectedGroups }) {
+  const totals = useMemo(() => getTotalsFor(selectedGroups), [selectedGroups]);
+  const groupSummaries = useMemo(() => getGroupSummary(selectedGroups), [selectedGroups]);
   const finalAsset = sweepMode ? "$SWEEP" : "USDC";
 
   useEffect(() => {
@@ -34,22 +34,22 @@ export default function Success({ go, sweepMode, selectedChains }) {
     setTimeout(() => fire({ x: 0.7, y: 0.5 }, 40), 350);
   }, [sweepMode]);
 
-  // Per-chain final amounts (apply sweep mode 10% bonus uniformly)
-  const finals = chainSummaries.map((c) => ({
-    ...c,
-    finalAmount: sweepMode ? +(c.net * 1.1).toFixed(2) : c.net,
+  // Per-group amounts — apply sweep mode 10% bonus uniformly across groups
+  const finals = groupSummaries.map((g) => ({
+    ...g,
+    finalAmount: sweepMode ? +(g.net * 1.1).toFixed(2) : g.net,
   }));
 
-  // Adaptive grid columns based on chain count
-  const gridCols = totals.chainCount === 1 ? "grid-cols-1"
-    : totals.chainCount === 3 ? "grid-cols-3"
+  const gridCols = totals.groupCount === 1 ? "grid-cols-1"
+    : totals.groupCount === 3 ? "grid-cols-3"
     : "grid-cols-2";
+
+  const totalReceived = finals.reduce((s, f) => s + f.finalAmount, 0).toFixed(2);
 
   return (
     <div className="relative w-full h-full overflow-hidden">
       <Particles mode="ambient" count={50} color={sweepMode ? "#FF4FD8" : "#7CFFB2"} />
 
-      {/* Top halo */}
       <div
         className="absolute left-1/2 top-[16%] -translate-x-1/2 w-[260px] h-[260px] pointer-events-none"
         style={{
@@ -71,14 +71,14 @@ export default function Success({ go, sweepMode, selectedChains }) {
           <h1 className="font-display text-[34px] font-bold text-text-primary leading-tight">
             Wallet Cleaned
           </h1>
-          <p className="text-[14px] text-text-secondary mt-2">
-            <span className="font-mono tabular-nums">{totals.tokenCount}</span> tokens swept across{" "}
-            <span className="font-mono tabular-nums">{totals.chainCount}</span>{" "}
-            {totals.chainCount === 1 ? "chain" : "chains"}.
-          </p>
+          <div className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full glass">
+            <PenLine size={11} className="text-sweep" />
+            <span className="text-[11px] text-text-secondary">
+              <span className="font-mono tabular-nums text-text-primary font-semibold">{totals.tokenCount}</span> tokens · swept in 1 signature
+            </span>
+          </div>
         </motion.div>
 
-        {/* Before / After */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -94,21 +94,20 @@ export default function Success({ go, sweepMode, selectedChains }) {
               </span>
             </div>
 
-            {/* Tokens grouped by chain */}
             <div className="space-y-1.5">
-              {chainSummaries.map((c) => (
-                <div key={c.id} className="flex items-center gap-2">
-                  <div className="flex items-center gap-1.5 w-[68px] shrink-0">
+              {groupSummaries.map((g) => (
+                <div key={g.id} className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5 w-[78px] shrink-0">
                     <span
                       className="w-1.5 h-1.5 rounded-full"
-                      style={{ background: c.color, boxShadow: `0 0 4px ${c.color}` }}
+                      style={{ background: g.color, boxShadow: `0 0 4px ${g.color}` }}
                     />
                     <span className="text-[10px] font-display font-semibold text-text-secondary uppercase tracking-wider">
-                      {c.short}
+                      {g.short}
                     </span>
                   </div>
                   <div className="flex gap-1 flex-1 opacity-60">
-                    {c.tokens.map((t) => (
+                    {g.tokens.map((t) => (
                       <div
                         key={t.symbol}
                         className="w-6 h-6 rounded-md flex items-center justify-center font-mono font-bold text-[8px] text-white shrink-0"
@@ -136,11 +135,11 @@ export default function Success({ go, sweepMode, selectedChains }) {
               <span className="text-[10px] tracking-[0.2em] uppercase text-sweep font-bold mt-0.5">SWEPT</span>
             </div>
 
-            {/* AFTER — per-chain coins */}
+            {/* AFTER — per-group final coins */}
             <div className="flex items-center justify-between mb-3">
               <MicroLabel color="mint">After</MicroLabel>
               <span className="font-mono text-[12px] text-sweep font-bold tabular-nums">
-                ${finals.reduce((s, f) => s + f.finalAmount, 0).toFixed(2)} {finalAsset}
+                ${totalReceived} {finalAsset}
               </span>
             </div>
 
@@ -173,8 +172,8 @@ export default function Success({ go, sweepMode, selectedChains }) {
                           ? "radial-gradient(circle at 30% 30%, #FF4FD8, #B5208F)"
                           : "radial-gradient(circle at 30% 30%, #7CFFB2, #4DA877)",
                         boxShadow: sweepMode
-                          ? `0 0 16px rgba(255,79,216,0.6)`
-                          : `0 0 16px rgba(124,255,178,0.6)`,
+                          ? "0 0 16px rgba(255,79,216,0.6)"
+                          : "0 0 16px rgba(124,255,178,0.6)",
                       }}
                       animate={{ scale: [1, 1.04, 1] }}
                       transition={{ duration: 2, repeat: Infinity, ease: "easeInOut", delay: i * 0.2 }}
@@ -190,6 +189,21 @@ export default function Success({ go, sweepMode, selectedChains }) {
                   </div>
                 </motion.div>
               ))}
+            </div>
+
+            {/* Rent line — Solana bonus */}
+            <div className="h-px w-full bg-white/10 my-3" />
+            <div className="flex items-center justify-between">
+              <span className="text-[12px] text-text-secondary flex items-center gap-1.5">
+                <span
+                  className="w-4 h-4 rounded-full flex items-center justify-center text-[8px] text-void font-bold"
+                  style={{ background: "radial-gradient(circle, #FFD27A, #B58B3A)" }}
+                >◎</span>
+                SOL rent reclaimed
+              </span>
+              <span className="font-mono text-[13px] text-gold font-bold tabular-nums">
+                +${totals.rent.toFixed(2)}
+              </span>
             </div>
           </HeroGlassCard>
         </motion.div>

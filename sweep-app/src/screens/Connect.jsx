@@ -46,7 +46,7 @@ export default function Connect({ go }) {
             Connect to scan
           </h2>
           <p className="mt-1.5 text-[15px] text-text-secondary">
-            We never move your funds.
+            Solana-native. One signature to clean.
           </p>
 
           <div className="mt-5 flex flex-col gap-2.5">
@@ -85,8 +85,8 @@ export default function Connect({ go }) {
               <Lock size={16} className="text-sweep" />
             </span>
             <p className="text-[13px] text-text-secondary leading-snug">
-              <span className="text-text-primary font-semibold">Read-only access.</span><br />
-              We see balances. Not keys.
+              <span className="text-text-primary font-semibold">No approvals. Ever.</span><br />
+              Solana skips that step. We just need your signature once at sweep time.
             </p>
           </motion.div>
         </div>

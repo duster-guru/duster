@@ -2,7 +2,7 @@ import { motion } from "framer-motion";
 import { Check, Copy, Download } from "lucide-react";
 import { useMemo, useState } from "react";
 import { BackButton, GlassButton, MicroLabel } from "../components/UI";
-import { CHAINS, DUST_TOKENS, getTotalsFor, WALLET_SHORT } from "../lib/data";
+import { GROUPS, DUST_TOKENS, getTotalsFor, WALLET_SHORT } from "../lib/data";
 import { SCREENS } from "../lib/screens";
 import { haptic } from "../lib/haptics";
 
@@ -15,15 +15,15 @@ const STYLES = [
   { id: "vapor",   name: "Vapor",   bg: "linear-gradient(160deg, #1a0820 0%, #08060d 100%)", accent: "#FF4FD8" },
 ];
 
-export default function Share({ go, selectedChains }) {
+export default function Share({ go, selectedGroups }) {
   const [styleIdx, setStyleIdx] = useState(0);
   const [copied, setCopied] = useState(false);
   const style = STYLES[styleIdx];
 
-  const totals = useMemo(() => getTotalsFor(selectedChains), [selectedChains]);
+  const totals = useMemo(() => getTotalsFor(selectedGroups), [selectedGroups]);
   const visibleTokens = useMemo(
-    () => DUST_TOKENS.filter((t) => selectedChains.includes(t.chain)),
-    [selectedChains]
+    () => DUST_TOKENS.filter((t) => selectedGroups.includes(t.group)),
+    [selectedGroups]
   );
 
   const onCopy = async () => {
@@ -40,7 +40,7 @@ export default function Share({ go, selectedChains }) {
   const onPostX = () => {
     haptic.medium?.();
     const text = encodeURIComponent(
-      `Just swept $${totals.total.toFixed(2)} in dust from my wallet. clean wallet > messy wallet ✨ try yours: sweep.app/r/4F7K`
+      `Just swept $${totals.total.toFixed(2)} of dust + reclaimed $${totals.rent.toFixed(2)} of unused SOL rent. one signature, no approvals. only on solana ✨ try yours: sweep.app/r/4F7K`
     );
     window.open(`https://x.com/intent/post?text=${text}`, "_blank");
   };
@@ -122,29 +122,28 @@ export default function Share({ go, selectedChains }) {
               <div className="my-5 flex items-center gap-2 w-full">
                 <div className="flex-1 h-px bg-white/15" />
                 <div className="text-[10px] uppercase tracking-[0.2em] text-white/50 font-semibold">
-                  {totals.tokenCount} tokens · {totals.chainCount}{" "}
-                  {totals.chainCount === 1 ? "chain" : "chains"}
+                  {totals.tokenCount} tokens · 1 signature
                 </div>
                 <div className="flex-1 h-px bg-white/15" />
               </div>
 
-              {/* Chain row */}
+              {/* Group row */}
               <div className="flex gap-3 justify-center items-center">
-                {selectedChains.map((id) => {
-                  const c = CHAINS[id];
+                {selectedGroups.map((id) => {
+                  const g = GROUPS[id];
                   return (
                     <div key={id} className="flex flex-col items-center gap-1">
                       <div
                         className="w-7 h-7 rounded-full flex items-center justify-center text-[12px] font-bold text-white"
                         style={{
-                          background: `linear-gradient(135deg, ${c.color}, ${c.color}99)`,
-                          boxShadow: `0 0 8px ${c.color}88`,
+                          background: `linear-gradient(135deg, ${g.color}, ${g.color}99)`,
+                          boxShadow: `0 0 8px ${g.color}88`,
                         }}
                       >
-                        {c.glyph}
+                        {g.glyph}
                       </div>
                       <span className="text-[8px] uppercase tracking-wider text-white/60 font-semibold">
-                        {c.short}
+                        {g.short}
                       </span>
                     </div>
                   );
@@ -155,7 +154,7 @@ export default function Share({ go, selectedChains }) {
               <div className="flex gap-1 justify-center flex-wrap mt-4 max-w-[220px]">
                 {visibleTokens.slice(0, 8).map((t) => (
                   <div
-                    key={`${t.chain}-${t.symbol}`}
+                    key={`${t.group}-${t.symbol}`}
                     className="w-5 h-5 rounded-full"
                     style={{
                       background: `linear-gradient(135deg, ${t.color}, ${t.color}99)`,
@@ -169,6 +168,13 @@ export default function Share({ go, selectedChains }) {
                     +{visibleTokens.length - 8}
                   </div>
                 )}
+              </div>
+
+              {/* Rent line on the share card */}
+              <div className="mt-3 px-2.5 py-1 rounded-full" style={{ background: "rgba(255,210,122,0.12)", border: "1px solid rgba(255,210,122,0.3)" }}>
+                <span className="text-[10px] uppercase tracking-wider font-bold" style={{ color: "#FFD27A" }}>
+                  +${totals.rent.toFixed(2)} rent reclaimed
+                </span>
               </div>
             </div>
 
