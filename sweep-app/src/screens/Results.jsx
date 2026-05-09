@@ -476,56 +476,9 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups, o
           )}
         </AnimatePresence>
 
-        {/* Compact summary — simple mode */}
-        {simpleMode && (
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.75, ease }}
-            className="mt-4"
-          >
-            <HeroGlassCard animated={revealDone}>
-              <div className="flex flex-col gap-2.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-[12px] text-text-secondary">You'll receive</span>
-                  <span className="font-mono text-[14px] font-bold tabular-nums" style={{ color: asset.color }}>
-                    {outputIsSol
-                      ? `~${formatTokenAmount(totalSolReceived, asset, livePrices)} SOL`
-                      : `~${formatTokenAmount(swapOutputAsset, asset, livePrices)} ${asset.symbol}`}
-                  </span>
-                </div>
-                {!outputIsSol && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-[12px] text-text-secondary flex items-center gap-1.5">
-                      + reclaimed rent
-                      <span className="text-[9px] uppercase tracking-wider text-gold font-bold">free SOL</span>
-                    </span>
-                    <span className="font-mono text-[13px] font-bold text-gold tabular-nums">
-                      +{rentReclaimSol.toFixed(4)} SOL
-                    </span>
-                  </div>
-                )}
-                <div className="h-px w-full bg-white/10" />
-                <div className="flex items-center justify-between">
-                  <span className="text-[13px] text-text-primary font-semibold">Total value</span>
-                  <span className="font-mono text-[16px] font-bold text-gradient-found tabular-nums">
-                    ~${totalUnlockedUsd.toFixed(2)}
-                  </span>
-                </div>
-                <button
-                  onClick={toggleMode}
-                  className="mt-1 mx-auto flex items-center gap-1 text-[11px] text-text-muted hover:text-text-secondary"
-                >
-                  <span>show details</span>
-                  <ChevronDown size={12} />
-                </button>
-              </div>
-            </HeroGlassCard>
-          </motion.div>
-        )}
-
-        {/* Full breakdown — advanced mode */}
-        {!simpleMode && (
+        {/* Single card — token list always; math detail varies by mode.
+            Simple mode adds the compact 3-line summary at the bottom.
+            Advanced mode adds the full DUST SWAP + RENT RECLAIM itemization. */}
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
@@ -598,6 +551,50 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups, o
               )}
             </ul>
 
+            {/* SIMPLE-MODE SUMMARY — compact 3-line outcome */}
+            {simpleMode && (
+              <>
+                <div className="h-px w-full bg-white/10 my-3" />
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[12px] text-text-secondary">You'll receive</span>
+                    <span className="font-mono text-[14px] font-bold tabular-nums" style={{ color: asset.color }}>
+                      {outputIsSol
+                        ? `~${formatTokenAmount(totalSolReceived, asset, livePrices)} SOL`
+                        : `~${formatTokenAmount(swapOutputAsset, asset, livePrices)} ${asset.symbol}`}
+                    </span>
+                  </div>
+                  {!outputIsSol && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-[12px] text-text-secondary flex items-center gap-1.5">
+                        + reclaimed rent
+                        <span className="text-[9px] uppercase tracking-wider text-gold font-bold">free SOL</span>
+                      </span>
+                      <span className="font-mono text-[13px] font-bold text-gold tabular-nums">
+                        +{rentReclaimSol.toFixed(4)} SOL
+                      </span>
+                    </div>
+                  )}
+                  <div className="h-px w-full bg-white/10" />
+                  <div className="flex items-center justify-between">
+                    <span className="text-[13px] text-text-primary font-semibold">Total value</span>
+                    <span className="font-mono text-[16px] font-bold text-gradient-found tabular-nums">
+                      ~${totalUnlockedUsd.toFixed(2)}
+                    </span>
+                  </div>
+                  <button
+                    onClick={toggleMode}
+                    className="mt-1 mx-auto flex items-center gap-1 text-[11px] text-text-muted hover:text-text-secondary"
+                  >
+                    <span>show details</span>
+                    <ChevronDown size={12} />
+                  </button>
+                </div>
+              </>
+            )}
+
+            {/* ADVANCED-MODE FULL BREAKDOWN — only visible when simpleMode is off */}
+            {!simpleMode && (<>
             {/* SWAP MATH — output asset side */}
             <div className="h-px w-full bg-white/10 my-3" />
             <div className="flex items-center gap-1.5 mb-1">
@@ -700,9 +697,9 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups, o
                 Fee account not configured — set <span className="font-mono">VITE_FEE_AUTHORITY</span> to actually collect the platform fee. Display only for now.
               </div>
             )}
+            </>)}
           </HeroGlassCard>
         </motion.div>
-        )}
 
         <motion.div
           initial={{ opacity: 0, y: 16 }}
