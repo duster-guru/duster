@@ -1,6 +1,6 @@
 import { useWallet } from "@solana/wallet-adapter-react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowRight, Check, ChevronDown, Info, PenLine, RefreshCw, Sparkles } from "lucide-react";
+import { ArrowRight, Check, ChevronDown, ChevronUp, Info, PenLine, RefreshCw, Sparkles } from "lucide-react";
 import { useMemo, useState } from "react";
 import Particles from "../components/Particles";
 import CountUp from "../components/CountUp";
@@ -157,10 +157,10 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups, o
           transition={{ duration: 0.45, delay: 0.1, ease }}
           className="flex flex-col items-center gap-1.5"
         >
-          <div className="flex items-center justify-center gap-2">
+          <div className="flex items-center justify-center gap-1.5">
             <button
               onClick={() => { haptic.light?.(); setHintOpen((v) => !v); }}
-              className="flex items-center gap-1 group"
+              className="flex items-center gap-1"
               title={`Dust = tokens valued under $${DUST_THRESHOLD_USD}.`}
             >
               <span
@@ -170,17 +170,6 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups, o
                 We found hidden money
               </span>
               <Info size={10} className="text-gold opacity-70" />
-            </button>
-            <button
-              onClick={toggleMode}
-              className="px-2 py-0.5 rounded-full glass flex items-center gap-1 text-[10px] uppercase tracking-wider font-bold transition-colors"
-              style={{
-                color: simpleMode ? "#A6ADBE" : "#7CFFB2",
-                borderColor: simpleMode ? undefined : "rgba(124,255,178,0.4)",
-              }}
-              title={simpleMode ? "Show advanced details" : "Hide advanced details"}
-            >
-              {simpleMode ? "+ Details" : "− Details"}
             </button>
           </div>
           <AnimatePresence>
@@ -747,6 +736,13 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups, o
                 Fee account not configured — set <span className="font-mono">VITE_FEE_AUTHORITY</span> to actually collect the platform fee. Display only for now.
               </div>
             )}
+            <button
+              onClick={toggleMode}
+              className="mt-3 mx-auto flex items-center gap-1 text-[11px] text-text-muted hover:text-text-secondary"
+            >
+              <ChevronUp size={12} />
+              <span>show less</span>
+            </button>
             </>)}
           </HeroGlassCard>
         </motion.div>
