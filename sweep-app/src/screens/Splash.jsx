@@ -11,40 +11,37 @@ export default function Splash({ go }) {
     <div className="relative w-full h-full">
       <Particles mode="ambient" count={70} />
 
-      {/* Center halo */}
+      {/* Center halo — matches favicon's purple/blue palette */}
       <div
         className="absolute left-1/2 top-[34%] -translate-x-1/2 -translate-y-1/2 w-[360px] h-[360px] rounded-full pointer-events-none"
         style={{
           background:
-            "radial-gradient(circle, rgba(124,255,178,0.18) 0%, rgba(124,255,178,0) 60%)",
+            "radial-gradient(circle, rgba(134,59,255,0.22) 0%, rgba(71,191,255,0.10) 40%, rgba(0,0,0,0) 70%)",
           filter: "blur(20px)",
         }}
       />
 
       <div className="relative z-10 h-full flex flex-col items-center pt-[18%] px-5 pb-10">
-        {/* Logo hex */}
+        {/* Logo — favicon with soft purple halo */}
         <motion.div
           initial={{ opacity: 0, scale: 0.85, y: 12 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           transition={{ duration: 0.8, ease, delay: 0.1 }}
-          className="relative"
+          className="relative w-[140px] h-[140px] flex items-center justify-center"
         >
           <div
-            className="w-[112px] h-[124px] flex items-center justify-center"
+            className="absolute inset-0 rounded-full pointer-events-none"
             style={{
-              clipPath: "polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)",
-              background: "linear-gradient(135deg, rgba(124,255,178,0.25), rgba(91,140,255,0.1))",
+              background: "radial-gradient(circle, rgba(134,59,255,0.45) 0%, rgba(71,191,255,0.18) 40%, transparent 70%)",
+              filter: "blur(18px)",
             }}
-          >
-            <div
-              className="w-[104px] h-[116px] flex items-center justify-center bg-surface"
-              style={{
-                clipPath: "polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)",
-              }}
-            >
-              <BroomGlyph />
-            </div>
-          </div>
+          />
+          <img
+            src="/favicon.svg"
+            alt="SWEEP"
+            className="relative w-[96px] h-[96px]"
+            style={{ filter: "drop-shadow(0 0 24px rgba(134,59,255,0.55))" }}
+          />
         </motion.div>
 
         <motion.h1
@@ -86,22 +83,3 @@ export default function Splash({ go }) {
   );
 }
 
-function BroomGlyph() {
-  return (
-    <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
-      <defs>
-        <linearGradient id="broom" x1="0" y1="0" x2="48" y2="48">
-          <stop stopColor="#7CFFB2" />
-          <stop offset="1" stopColor="#5B8CFF" />
-        </linearGradient>
-      </defs>
-      <path d="M30 6L42 18" stroke="url(#broom)" strokeWidth="3" strokeLinecap="round" />
-      <path d="M30 16L24 22L26 24L32 18L30 16Z" fill="url(#broom)" />
-      <path d="M22 24L8 38L10 42L26 28" stroke="url(#broom)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M8 38L4 42M10 40L6 44M12 42L8 46" stroke="url(#broom)" strokeWidth="2" strokeLinecap="round" />
-      <circle cx="38" cy="10" r="2" fill="#FFD27A" />
-      <circle cx="20" cy="10" r="1.5" fill="#7CFFB2" opacity="0.7" />
-      <circle cx="44" cy="22" r="1.5" fill="#FF4FD8" opacity="0.6" />
-    </svg>
-  );
-}
