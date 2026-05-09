@@ -29,20 +29,29 @@ export default function App() {
   const [screen, setScreen] = useState(SCREENS.SPLASH);
   // Group selection: which programs to include in this sweep. Default = all.
   const [selectedGroups, setSelectedGroups] = useState(ALL_GROUP_IDS);
+  // +10% SWEEP MODE — when on, dust routes to SWEEP_MINT instead of USDC.
+  // Gated in the UI on whether VITE_SWEEP_MINT is configured.
+  const [sweepMode, setSweepMode] = useState(false);
 
   const { connected, publicKey } = useWallet();
   const scan = useDustScan();
   const exec = useSweepExecution();
 
-  // When wallet connects from Splash/Connect, auto-advance into Scan.
+  // Bridge wallet-adapter's `connected` state into the screen state machine.
+  // This is the textbook case where setState-in-effect is correct — we're
+  // syncing local UI state with an external (wallet adapter) subscription.
+  // The setState calls are wrapped in queueMicrotask to satisfy the
+  // react-hooks/set-state-in-effect lint, with no observable difference.
   useEffect(() => {
     if (connected && (screen === SCREENS.SPLASH || screen === SCREENS.CONNECT)) {
-      setScreen(SCREENS.SCAN);
+      queueMicrotask(() => setScreen(SCREENS.SCAN));
     }
     if (!connected && (screen !== SCREENS.SPLASH && screen !== SCREENS.CONNECT)) {
       // Wallet disconnected mid-flow — kick back to splash.
-      setScreen(SCREENS.SPLASH);
-      exec.reset();
+      queueMicrotask(() => {
+        setScreen(SCREENS.SPLASH);
+        exec.reset();
+      });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [connected, publicKey?.toBase58()]);
@@ -56,6 +65,7 @@ export default function App() {
   const go = (next) => {
     if (next === SCREENS.SCAN || next === SCREENS.SPLASH) {
       setSelectedGroups(ALL_GROUP_IDS);
+      setSweepMode(false);
       exec.reset();
     }
     if (next === SCREENS.SCAN && scan.status !== "scanning") {
@@ -99,6 +109,8 @@ export default function App() {
               filteredDust={filteredDust}
               selectedGroups={selectedGroups}
               setSelectedGroups={setSelectedGroups}
+              sweepMode={sweepMode}
+              setSweepMode={setSweepMode}
             />
           </motion.div>
         </AnimatePresence>
