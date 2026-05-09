@@ -61,21 +61,51 @@ export const OUTPUT_ASSETS = {
 };
 
 /**
- * Convert a USD amount to the output asset's token amount using its usdRef.
- * Pure UI estimate — Jupiter's actual quote determines the real outAmount.
+ * Resolve the effective USD/token price for an output asset.
+ * Live price (from useDustScan.outputPrices) wins when available; otherwise
+ * falls back to the env/static usdRef baked into the asset entry.
  */
-export function usdToTokenAmount(usdAmount, asset) {
-  if (!asset || !asset.usdRef || asset.usdRef <= 0) return 0;
-  return usdAmount / asset.usdRef;
+export function getEffectivePrice(asset, livePrices) {
+  if (!asset) return 1;
+  const live = livePrices?.[asset.id];
+  if (typeof live === "number" && live > 0) return live;
+  return asset.usdRef ?? 1;
 }
 
 /**
- * Format a token amount with the asset's display decimals + locale separators.
- * Returns "1,234.56" style. Pair with the symbol externally.
+ * Sensible display decimals based on the actual price magnitude. Low-priced
+ * tokens (<$0.01) need many decimals to be meaningful; high-priced tokens
+ * (>$100) only need 4.
  */
-export function formatTokenAmount(amount, asset) {
+export function decimalsForPrice(price, fallback = 4) {
+  if (!price || price <= 0) return fallback;
+  if (price >= 100) return 4;     // SOL-like
+  if (price >= 1)   return 2;     // USDC-like / SWEEP at $1+
+  if (price >= 0.01) return 2;    // SWEEP at cents
+  if (price >= 0.0001) return 0;  // SWEEP at fractions of a cent
+  return 0;                       // ultra-low — show whole units
+}
+
+/**
+ * Convert a USD amount to the output asset's token amount using a live or
+ * fallback price.
+ */
+export function usdToTokenAmount(usdAmount, asset, livePrices) {
+  const price = getEffectivePrice(asset, livePrices);
+  if (!price || price <= 0) return 0;
+  return usdAmount / price;
+}
+
+/**
+ * Format a token amount with decimals chosen from the live (or fallback)
+ * price magnitude. Returns "1,234.56" style.
+ */
+export function formatTokenAmount(amount, asset, livePrices) {
   if (!asset) return "0";
-  const dec = asset.displayDecimals ?? 4;
+  const price = getEffectivePrice(asset, livePrices);
+  const dec = livePrices && livePrices[asset.id]
+    ? decimalsForPrice(price, asset.displayDecimals)
+    : (asset.displayDecimals ?? 4);
   return Number(amount).toLocaleString(undefined, {
     minimumFractionDigits: dec,
     maximumFractionDigits: dec,

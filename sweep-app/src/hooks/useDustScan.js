@@ -3,7 +3,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   DUST_THRESHOLD_USD,
   MIN_SWEEPABLE_USD,
+  SWEEP_MINT,
   USDC_MINT,
+  WSOL_MINT,
 } from "../lib/config";
 import { fetchPrices } from "../lib/solana/pricing";
 import { classifyGroup } from "../lib/solana/groups";
@@ -37,6 +39,10 @@ export default function useDustScan() {
   const [dust, setDust] = useState([]);
   const [usdcBefore, setUsdcBefore] = useState(0);
   const [error, setError] = useState(null);
+  // Live USD prices for the swap-output assets (USDC/SOL/SWEEP), snapshotted
+  // at scan time. Each component reads its asset's id and falls back to the
+  // env-derived usdRef if Jupiter didn't return a price.
+  const [outputPrices, setOutputPrices] = useState({});
   const [diag, setDiag] = useState({
     accountCount: 0,
     nonZeroCount: 0,
@@ -72,10 +78,27 @@ export default function useDustScan() {
       setProgress(35);
 
       setMessage("Pricing via Jupiter…");
-      const mints = nonZero.map((a) => a.mint);
-      const priceMap = await fetchPrices(mints);
+      // Add the swap-output mints to the same price call so we can show
+      // accurate "you'll get N TOKEN" estimates without a separate request.
+      const dustMints = nonZero.map((a) => a.mint);
+      const outputMints = [
+        USDC_MINT.toBase58(),
+        WSOL_MINT.toBase58(),
+        SWEEP_MINT?.toBase58(),
+      ].filter(Boolean);
+      const priceMap = await fetchPrices([
+        ...new Set([...dustMints, ...outputMints]),
+      ]);
       if (cancelled.current) return;
-      console.log("[scan] priced:", priceMap.size, "/", mints.length);
+
+      // Snapshot output-asset prices for downstream screens.
+      const outPrices = {
+        usdc: priceMap.get(USDC_MINT.toBase58()) ?? 1,
+        sol: priceMap.get(WSOL_MINT.toBase58()) ?? null,
+        sweep: SWEEP_MINT ? (priceMap.get(SWEEP_MINT.toBase58()) ?? null) : null,
+      };
+      setOutputPrices(outPrices);
+      console.log("[scan] priced dust:", priceMap.size - outputMints.filter(m => priceMap.has(m)).length, "/", dustMints.length, "outputs:", outPrices);
       setProgress(60);
 
       // Compute USD value for each non-zero account
@@ -174,6 +197,7 @@ export default function useDustScan() {
     usdcBefore,
     error,
     diag,
+    outputPrices,
     refresh: run,
   };
 }

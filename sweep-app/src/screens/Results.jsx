@@ -6,8 +6,8 @@ import Particles from "../components/Particles";
 import CountUp from "../components/CountUp";
 import { GhostButton, HeroGlassCard, MicroLabel, PrimaryButton, TokenIcon } from "../components/UI";
 import { ALL_GROUP_IDS, summarizeGroups, totalsFor } from "../lib/solana/groups";
-import { formatTokenAmount, getAvailableOutputs, getOutputAsset, usdToTokenAmount } from "../lib/solana/outputs";
-import { FEE_AUTHORITY, RENT_PER_ACCOUNT_SOL, SOL_USD_REF } from "../lib/config";
+import { formatTokenAmount, getAvailableOutputs, getEffectivePrice, getOutputAsset, usdToTokenAmount } from "../lib/solana/outputs";
+import { DUST_THRESHOLD_USD, FEE_AUTHORITY, RENT_PER_ACCOUNT_SOL, SOL_USD_REF } from "../lib/config";
 import { SCREENS } from "../lib/screens";
 import { haptic } from "../lib/haptics";
 
@@ -29,6 +29,10 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups, o
 
   const availableOutputs = useMemo(() => getAvailableOutputs(), []);
   const asset = getOutputAsset(outputAsset);
+  const livePrices = scan.outputPrices;
+  const livePrice = getEffectivePrice(asset, livePrices);
+  const livePriceIsLive = !!(livePrices && livePrices[asset.id]);
+  const livePriceSol = getEffectivePrice(getOutputAsset("sol"), livePrices);
 
   // -----------------------------------------------------------------------
   // Two independent accounting buckets — DO NOT merge unless output is SOL.
@@ -41,24 +45,20 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups, o
   //        N closed ATAs × 0.00203928 SOL each = reclaimed SOL
   //        This is user-owned SOL previously locked for rent exemption.
   //        Goes back to the wallet as native SOL regardless of output asset.
-  //
-  // The user's "total value unlocked" is the USD sum of both, but the two
-  // amounts arrive in *different* assets and must be displayed separately.
   // -----------------------------------------------------------------------
   const platformFeeUsd = +(totals.total * (asset.feeBps / 10_000)).toFixed(2);
   const networkFeeUsd = 0.01;
   const swapOutputUsd = +(totals.total - platformFeeUsd - networkFeeUsd).toFixed(2);
 
   const rentReclaimSol = +(totals.tokenCount * RENT_PER_ACCOUNT_SOL).toFixed(6);
-  const rentReclaimUsd = +(rentReclaimSol * SOL_USD_REF).toFixed(2);
+  const rentReclaimUsd = +(rentReclaimSol * livePriceSol).toFixed(2);
 
   // SOL output: rent SOL aggregates with swap-output SOL into one balance.
   // USDC / SWEEP output: rent SOL stays separate as a native-SOL line.
   const outputIsSol = asset.id === "sol";
-  const swapOutputAsset = +usdToTokenAmount(swapOutputUsd, asset).toFixed(6);
+  const swapOutputAsset = +usdToTokenAmount(swapOutputUsd, asset, livePrices).toFixed(6);
   const totalSolReceived = outputIsSol ? +(swapOutputAsset + rentReclaimSol).toFixed(6) : null;
   const totalUnlockedUsd = +(swapOutputUsd + rentReclaimUsd).toFixed(2);
-  // Avoid lint "unused" on SOL_USD_REF when the file imports it for clarity.
   void SOL_USD_REF;
 
   const toggleGroup = (id) => {
@@ -139,9 +139,20 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups, o
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.45, delay: 0.1, ease }}
-          className="text-center"
+          className="flex items-center justify-center gap-2"
         >
           <MicroLabel color="gold">We found hidden money</MicroLabel>
+          <span
+            className="text-[9px] font-mono uppercase tracking-[0.2em] font-bold px-2 py-0.5 rounded-full"
+            style={{
+              background: "rgba(255,210,122,0.10)",
+              border: "1px solid rgba(255,210,122,0.30)",
+              color: "#FFD27A",
+            }}
+            title="Dust threshold — only tokens valued under this are surfaced"
+          >
+            DUST &lt; ${DUST_THRESHOLD_USD}
+          </span>
         </motion.div>
 
         <motion.div
@@ -191,7 +202,7 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups, o
               >
                 <ArrowRight size={12} style={{ color: asset.color }} strokeWidth={2.5} />
                 <span className="text-[12px] font-display font-bold" style={{ color: asset.color }}>
-                  ~{formatTokenAmount(totalSolReceived, asset)} SOL
+                  ~{formatTokenAmount(totalSolReceived, asset, livePrices)} SOL
                 </span>
                 <span
                   className="text-[10px] uppercase tracking-wider font-bold opacity-70"
@@ -212,7 +223,7 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups, o
                 >
                   <ArrowRight size={12} style={{ color: asset.color }} strokeWidth={2.5} />
                   <span className="text-[12px] font-display font-bold" style={{ color: asset.color }}>
-                    ~{formatTokenAmount(swapOutputAsset, asset)} {asset.symbol}
+                    ~{formatTokenAmount(swapOutputAsset, asset, livePrices)} {asset.symbol}
                   </span>
                   <span
                     className="text-[10px] uppercase tracking-wider font-bold opacity-70"
@@ -320,6 +331,8 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups, o
           <div className="grid grid-cols-3 gap-2">
             {availableOutputs.map((a) => {
               const isSelected = a.id === outputAsset;
+              const cardLivePrice = getEffectivePrice(a, livePrices);
+              const cardLiveOk = !!(livePrices && livePrices[a.id]);
               return (
                 <motion.button
                   key={a.id}
@@ -351,6 +364,21 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups, o
                   >
                     {(a.feeBps / 100).toFixed(0)}% fee
                   </div>
+                  {isSelected && a.id !== "usdc" && (
+                    <div className="flex items-center gap-1 mt-0.5">
+                      <span
+                        className="w-1 h-1 rounded-full"
+                        style={{
+                          background: cardLiveOk ? "#34E1A2" : "#FFB257",
+                          boxShadow: cardLiveOk ? "0 0 4px #34E1A2" : "0 0 4px #FFB257",
+                        }}
+                        title={cardLiveOk ? "Live price from Jupiter" : "Using env fallback price (Jupiter unreachable)"}
+                      />
+                      <span className="text-[9px] font-mono opacity-70" style={{ color: a.color }}>
+                        ${cardLivePrice >= 0.01 ? cardLivePrice.toFixed(2) : cardLivePrice.toFixed(6)}
+                      </span>
+                    </div>
+                  )}
                 </motion.button>
               );
             })}
@@ -520,7 +548,7 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups, o
             <div className="flex items-center justify-between py-0.5 mt-0.5">
               <span className="text-[12px] text-text-primary font-semibold">Swap output</span>
               <span className="font-mono text-[13px] font-bold tabular-nums text-right" style={{ color: asset.color }}>
-                ~{formatTokenAmount(swapOutputAsset, asset)}{" "}
+                ~{formatTokenAmount(swapOutputAsset, asset, livePrices)}{" "}
                 <span className="text-[10px] uppercase tracking-wider opacity-80">{asset.symbol}</span>
                 <span className="block text-[10px] font-mono opacity-70 leading-none mt-0.5">
                   ≈ ${swapOutputUsd.toFixed(2)}
@@ -561,7 +589,7 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups, o
                   You receive (est.)
                 </span>
                 <span className="font-mono text-[14px] font-bold tabular-nums text-right" style={{ color: asset.color }}>
-                  ~{formatTokenAmount(totalSolReceived, asset)} SOL
+                  ~{formatTokenAmount(totalSolReceived, asset, livePrices)} SOL
                   <span className="block text-[10px] font-mono opacity-70 leading-none mt-0.5">
                     ≈ ${totalUnlockedUsd.toFixed(2)}
                   </span>
