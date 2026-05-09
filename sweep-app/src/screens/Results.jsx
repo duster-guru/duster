@@ -6,7 +6,7 @@ import Particles from "../components/Particles";
 import CountUp from "../components/CountUp";
 import { GhostButton, HeroGlassCard, MicroLabel, PrimaryButton, TokenIcon } from "../components/UI";
 import { ALL_GROUP_IDS, summarizeGroups, totalsFor } from "../lib/solana/groups";
-import { getAvailableOutputs, getOutputAsset } from "../lib/solana/outputs";
+import { formatTokenAmount, getAvailableOutputs, getOutputAsset, usdToTokenAmount } from "../lib/solana/outputs";
 import { FEE_AUTHORITY, RENT_PER_ACCOUNT_SOL, SOL_USD_REF } from "../lib/config";
 import { SCREENS } from "../lib/screens";
 import { haptic } from "../lib/haptics";
@@ -55,9 +55,11 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups, o
   // SOL output: rent SOL aggregates with swap-output SOL into one balance.
   // USDC / SWEEP output: rent SOL stays separate as a native-SOL line.
   const outputIsSol = asset.id === "sol";
-  const swapOutputSol = outputIsSol ? +(swapOutputUsd / SOL_USD_REF).toFixed(6) : null;
-  const totalSolReceived = outputIsSol ? +(swapOutputSol + rentReclaimSol).toFixed(6) : null;
+  const swapOutputAsset = +usdToTokenAmount(swapOutputUsd, asset).toFixed(6);
+  const totalSolReceived = outputIsSol ? +(swapOutputAsset + rentReclaimSol).toFixed(6) : null;
   const totalUnlockedUsd = +(swapOutputUsd + rentReclaimUsd).toFixed(2);
+  // Avoid lint "unused" on SOL_USD_REF when the file imports it for clarity.
+  void SOL_USD_REF;
 
   const toggleGroup = (id) => {
     if (!presentGroupIds.includes(id)) return;
@@ -189,10 +191,10 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups, o
               >
                 <ArrowRight size={12} style={{ color: asset.color }} strokeWidth={2.5} />
                 <span className="text-[12px] font-display font-bold" style={{ color: asset.color }}>
-                  ~{totalSolReceived?.toFixed(4)} SOL
+                  ~{formatTokenAmount(totalSolReceived, asset)} SOL
                 </span>
                 <span
-                  className="text-[10px] uppercase tracking-wider font-bold opacity-80"
+                  className="text-[10px] uppercase tracking-wider font-bold opacity-70"
                   style={{ color: asset.color }}
                 >
                   ~${totalUnlockedUsd.toFixed(2)}
@@ -210,13 +212,13 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups, o
                 >
                   <ArrowRight size={12} style={{ color: asset.color }} strokeWidth={2.5} />
                   <span className="text-[12px] font-display font-bold" style={{ color: asset.color }}>
-                    ~${swapOutputUsd.toFixed(2)}
+                    ~{formatTokenAmount(swapOutputAsset, asset)} {asset.symbol}
                   </span>
                   <span
-                    className="text-[10px] uppercase tracking-wider font-bold opacity-80"
+                    className="text-[10px] uppercase tracking-wider font-bold opacity-70"
                     style={{ color: asset.color }}
                   >
-                    {asset.symbol}
+                    ~${swapOutputUsd.toFixed(2)}
                   </span>
                 </span>
                 <span
@@ -230,8 +232,8 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups, o
                   <span className="text-[12px] font-display font-bold text-gold tabular-nums">
                     {rentReclaimSol.toFixed(4)} SOL
                   </span>
-                  <span className="text-[10px] uppercase tracking-wider text-gold opacity-80 font-bold">
-                    rent
+                  <span className="text-[10px] uppercase tracking-wider text-gold opacity-70 font-bold">
+                    ~${rentReclaimUsd.toFixed(2)}
                   </span>
                 </span>
               </>
@@ -517,9 +519,12 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups, o
             </div>
             <div className="flex items-center justify-between py-0.5 mt-0.5">
               <span className="text-[12px] text-text-primary font-semibold">Swap output</span>
-              <span className="font-mono text-[13px] font-bold tabular-nums" style={{ color: asset.color }}>
-                ~${swapOutputUsd.toFixed(2)}{" "}
+              <span className="font-mono text-[13px] font-bold tabular-nums text-right" style={{ color: asset.color }}>
+                ~{formatTokenAmount(swapOutputAsset, asset)}{" "}
                 <span className="text-[10px] uppercase tracking-wider opacity-80">{asset.symbol}</span>
+                <span className="block text-[10px] font-mono opacity-70 leading-none mt-0.5">
+                  ≈ ${swapOutputUsd.toFixed(2)}
+                </span>
               </span>
             </div>
 
@@ -555,10 +560,10 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups, o
                 <span className="text-[13px] text-text-primary font-semibold">
                   You receive (est.)
                 </span>
-                <span className="font-mono text-[14px] font-bold tabular-nums" style={{ color: asset.color }}>
-                  ~{totalSolReceived?.toFixed(4)} SOL
-                  <span className="text-[10px] uppercase tracking-wider opacity-80 ml-1">
-                    ~${totalUnlockedUsd.toFixed(2)}
+                <span className="font-mono text-[14px] font-bold tabular-nums text-right" style={{ color: asset.color }}>
+                  ~{formatTokenAmount(totalSolReceived, asset)} SOL
+                  <span className="block text-[10px] font-mono opacity-70 leading-none mt-0.5">
+                    ≈ ${totalUnlockedUsd.toFixed(2)}
                   </span>
                 </span>
               </div>

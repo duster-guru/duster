@@ -5,7 +5,7 @@ import { useEffect, useMemo } from "react";
 import Particles from "../components/Particles";
 import { GhostButton, HeroGlassCard, MicroLabel, PrimaryButton } from "../components/UI";
 import { ALL_GROUP_IDS, summarizeGroups } from "../lib/solana/groups";
-import { getOutputAsset } from "../lib/solana/outputs";
+import { formatTokenAmount, getOutputAsset } from "../lib/solana/outputs";
 import { RENT_PER_ACCOUNT_SOL, SOL_USD_REF } from "../lib/config";
 import { SCREENS } from "../lib/screens";
 import { haptic } from "../lib/haptics";
@@ -138,13 +138,14 @@ export default function Success({ go, scan, exec, filteredDust, outputAsset }) {
               </div>
               <div className="flex items-baseline justify-center gap-1.5">
                 <span className="font-display font-bold text-[28px] tabular-nums" style={{ color: asset.color }}>
-                  +{outputIsSol
-                      ? `${swapOutputAsset.toFixed(4)}`
-                      : `$${swapOutputUsd.toFixed(2)}`}
+                  +{formatTokenAmount(swapOutputAsset, asset)}
                 </span>
                 <span className="text-[12px] opacity-80" style={{ color: asset.color }}>
                   {asset.symbol}
                 </span>
+              </div>
+              <div className="text-center text-[11px] font-mono text-text-muted mt-0.5">
+                ≈ ${swapOutputUsd.toFixed(2)}
               </div>
             </div>
 
