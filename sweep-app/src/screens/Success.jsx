@@ -1,19 +1,22 @@
 import confetti from "canvas-confetti";
 import { motion } from "framer-motion";
 import { ArrowRight, Sparkles } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import Particles from "../components/Particles";
 import { GhostButton, HeroGlassCard, MicroLabel, PrimaryButton } from "../components/UI";
-import { DUST_TOKENS, NET_RECEIVED, TOTAL_FOUND } from "../lib/data";
+import { getChainSummary, getTotalsFor } from "../lib/data";
 import { SCREENS } from "../lib/screens";
 import { haptic } from "../lib/haptics";
 
 const ease = [0.16, 1, 0.3, 1];
 
-export default function Success({ go, sweepMode }) {
+export default function Success({ go, sweepMode, selectedChains }) {
+  const totals = useMemo(() => getTotalsFor(selectedChains), [selectedChains]);
+  const chainSummaries = useMemo(() => getChainSummary(selectedChains), [selectedChains]);
+  const finalAsset = sweepMode ? "$SWEEP" : "USDC";
+
   useEffect(() => {
     haptic.success?.();
-    // Confetti burst
     const colors = sweepMode ? ["#FF4FD8", "#FFD27A", "#7CFFB2"] : ["#7CFFB2", "#FFD27A", "#5B8CFF"];
     const fire = (origin, particleCount) =>
       confetti({
@@ -31,8 +34,16 @@ export default function Success({ go, sweepMode }) {
     setTimeout(() => fire({ x: 0.7, y: 0.5 }, 40), 350);
   }, [sweepMode]);
 
-  const finalAsset = sweepMode ? "$SWEEP" : "USDC";
-  const finalAmount = sweepMode ? (NET_RECEIVED * 1.1).toFixed(2) : NET_RECEIVED.toFixed(2);
+  // Per-chain final amounts (apply sweep mode 10% bonus uniformly)
+  const finals = chainSummaries.map((c) => ({
+    ...c,
+    finalAmount: sweepMode ? +(c.net * 1.1).toFixed(2) : c.net,
+  }));
+
+  // Adaptive grid columns based on chain count
+  const gridCols = totals.chainCount === 1 ? "grid-cols-1"
+    : totals.chainCount === 3 ? "grid-cols-3"
+    : "grid-cols-2";
 
   return (
     <div className="relative w-full h-full overflow-hidden">
@@ -40,7 +51,7 @@ export default function Success({ go, sweepMode }) {
 
       {/* Top halo */}
       <div
-        className="absolute left-1/2 top-[18%] -translate-x-1/2 w-[260px] h-[260px] pointer-events-none"
+        className="absolute left-1/2 top-[16%] -translate-x-1/2 w-[260px] h-[260px] pointer-events-none"
         style={{
           background: sweepMode
             ? "radial-gradient(circle, rgba(255,79,216,0.3) 0%, transparent 60%)"
@@ -49,7 +60,7 @@ export default function Success({ go, sweepMode }) {
         }}
       />
 
-      <div className="relative z-10 h-full flex flex-col px-5 pt-20 pb-6 overflow-y-auto no-scrollbar">
+      <div className="relative z-10 h-full flex flex-col px-5 pt-16 pb-6 overflow-y-auto no-scrollbar">
         <motion.div
           initial={{ opacity: 0, scale: 0.96, y: 12 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -60,8 +71,10 @@ export default function Success({ go, sweepMode }) {
           <h1 className="font-display text-[34px] font-bold text-text-primary leading-tight">
             Wallet Cleaned
           </h1>
-          <p className="text-[15px] text-text-secondary mt-2">
-            Your dust is one clean coin.
+          <p className="text-[14px] text-text-secondary mt-2">
+            <span className="font-mono tabular-nums">{totals.tokenCount}</span> tokens swept across{" "}
+            <span className="font-mono tabular-nums">{totals.chainCount}</span>{" "}
+            {totals.chainCount === 1 ? "chain" : "chains"}.
           </p>
         </motion.div>
 
@@ -70,45 +83,49 @@ export default function Success({ go, sweepMode }) {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.25, ease }}
-          className="mt-6"
+          className="mt-5"
         >
           <HeroGlassCard>
             {/* BEFORE */}
             <div className="flex items-center justify-between mb-2">
               <MicroLabel>Before</MicroLabel>
               <span className="font-mono text-[12px] text-text-muted tabular-nums">
-                ${TOTAL_FOUND.toFixed(2)} in dust
+                ${totals.total.toFixed(2)} dust
               </span>
             </div>
-            <div className="grid grid-cols-6 gap-1.5 opacity-60">
-              {DUST_TOKENS.slice(0, 6).map((t) => (
-                <div
-                  key={t.symbol}
-                  className="aspect-square rounded-md flex items-center justify-center font-mono font-bold text-[9px] text-white"
-                  style={{
-                    background: `linear-gradient(135deg, ${t.color}cc, ${t.color}66)`,
-                    boxShadow: `0 0 8px ${t.color}55`,
-                  }}
-                >
-                  {t.symbol.slice(0, 3)}
-                </div>
-              ))}
-            </div>
-            <div className="grid grid-cols-6 gap-1.5 opacity-40 mt-1.5">
-              {DUST_TOKENS.slice(6).map((t) => (
-                <div
-                  key={t.symbol}
-                  className="aspect-square rounded-md flex items-center justify-center font-mono font-bold text-[9px] text-white"
-                  style={{
-                    background: `linear-gradient(135deg, ${t.color}aa, ${t.color}44)`,
-                  }}
-                >
-                  {t.symbol.slice(0, 3)}
+
+            {/* Tokens grouped by chain */}
+            <div className="space-y-1.5">
+              {chainSummaries.map((c) => (
+                <div key={c.id} className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5 w-[68px] shrink-0">
+                    <span
+                      className="w-1.5 h-1.5 rounded-full"
+                      style={{ background: c.color, boxShadow: `0 0 4px ${c.color}` }}
+                    />
+                    <span className="text-[10px] font-display font-semibold text-text-secondary uppercase tracking-wider">
+                      {c.short}
+                    </span>
+                  </div>
+                  <div className="flex gap-1 flex-1 opacity-60">
+                    {c.tokens.map((t) => (
+                      <div
+                        key={t.symbol}
+                        className="w-6 h-6 rounded-md flex items-center justify-center font-mono font-bold text-[8px] text-white shrink-0"
+                        style={{
+                          background: `linear-gradient(135deg, ${t.color}cc, ${t.color}66)`,
+                          boxShadow: `0 0 6px ${t.color}55`,
+                        }}
+                      >
+                        {t.symbol.slice(0, 3)}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               ))}
             </div>
 
-            <div className="flex flex-col items-center my-4">
+            <div className="flex flex-col items-center my-3">
               <motion.div
                 animate={{ y: [0, 4, 0] }}
                 transition={{ duration: 1.2, repeat: Infinity, ease: "easeInOut" }}
@@ -116,32 +133,63 @@ export default function Success({ go, sweepMode }) {
               >
                 <ArrowRight size={20} className="rotate-90" />
               </motion.div>
-              <span className="text-[10px] tracking-[0.2em] uppercase text-sweep font-bold mt-1">SWEPT</span>
+              <span className="text-[10px] tracking-[0.2em] uppercase text-sweep font-bold mt-0.5">SWEPT</span>
             </div>
 
-            {/* AFTER */}
-            <div className="flex items-center justify-between mb-2">
+            {/* AFTER — per-chain coins */}
+            <div className="flex items-center justify-between mb-3">
               <MicroLabel color="mint">After</MicroLabel>
               <span className="font-mono text-[12px] text-sweep font-bold tabular-nums">
-                ${finalAmount} {finalAsset}
+                ${finals.reduce((s, f) => s + f.finalAmount, 0).toFixed(2)} {finalAsset}
               </span>
             </div>
-            <div className="flex items-center justify-center py-3">
-              <motion.div
-                animate={{ scale: [1, 1.04, 1] }}
-                transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-                className={`w-20 h-20 rounded-full flex items-center justify-center font-display font-bold text-[16px] text-void`}
-                style={{
-                  background: sweepMode
-                    ? "radial-gradient(circle at 30% 30%, #FF4FD8, #B5208F)"
-                    : "radial-gradient(circle at 30% 30%, #7CFFB2, #4DA877)",
-                  boxShadow: sweepMode
-                    ? "0 0 32px rgba(255,79,216,0.7), inset 0 2px 0 rgba(255,255,255,0.4)"
-                    : "0 0 32px rgba(124,255,178,0.7), inset 0 2px 0 rgba(255,255,255,0.4)",
-                }}
-              >
-                {finalAsset}
-              </motion.div>
+
+            <div className={`grid ${gridCols} gap-2`}>
+              {finals.map((f, i) => (
+                <motion.div
+                  key={f.id}
+                  initial={{ opacity: 0, y: 8, scale: 0.9 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  transition={{ duration: 0.4, delay: 0.4 + i * 0.07, ease }}
+                  className="flex flex-col items-center gap-1.5 p-2 rounded-md"
+                  style={{
+                    background: `${f.color}10`,
+                    border: `1px solid ${f.color}40`,
+                  }}
+                >
+                  <div className="relative">
+                    <div
+                      className="absolute inset-0 rounded-full"
+                      style={{
+                        width: 48,
+                        height: 48,
+                        border: `1.5px solid ${f.color}`,
+                      }}
+                    />
+                    <motion.div
+                      className="w-[48px] h-[48px] rounded-full flex items-center justify-center font-display font-bold text-[10px] text-void"
+                      style={{
+                        background: sweepMode
+                          ? "radial-gradient(circle at 30% 30%, #FF4FD8, #B5208F)"
+                          : "radial-gradient(circle at 30% 30%, #7CFFB2, #4DA877)",
+                        boxShadow: sweepMode
+                          ? `0 0 16px rgba(255,79,216,0.6)`
+                          : `0 0 16px rgba(124,255,178,0.6)`,
+                      }}
+                      animate={{ scale: [1, 1.04, 1] }}
+                      transition={{ duration: 2, repeat: Infinity, ease: "easeInOut", delay: i * 0.2 }}
+                    >
+                      {sweepMode ? "SWP" : "USDC"}
+                    </motion.div>
+                  </div>
+                  <div className="text-[9px] font-display font-bold uppercase tracking-wider" style={{ color: f.color }}>
+                    {f.short}
+                  </div>
+                  <div className="text-[12px] font-mono font-bold text-text-primary tabular-nums leading-none">
+                    ${f.finalAmount.toFixed(2)}
+                  </div>
+                </motion.div>
+              ))}
             </div>
           </HeroGlassCard>
         </motion.div>

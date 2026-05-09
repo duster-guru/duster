@@ -1,8 +1,8 @@
 import { motion } from "framer-motion";
 import { Check, Copy, Download } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { BackButton, GlassButton, MicroLabel } from "../components/UI";
-import { DUST_TOKENS, NET_RECEIVED, TOTAL_FOUND, WALLET_SHORT } from "../lib/data";
+import { CHAINS, DUST_TOKENS, getTotalsFor, WALLET_SHORT } from "../lib/data";
 import { SCREENS } from "../lib/screens";
 import { haptic } from "../lib/haptics";
 
@@ -15,16 +15,24 @@ const STYLES = [
   { id: "vapor",   name: "Vapor",   bg: "linear-gradient(160deg, #1a0820 0%, #08060d 100%)", accent: "#FF4FD8" },
 ];
 
-export default function Share({ go }) {
+export default function Share({ go, selectedChains }) {
   const [styleIdx, setStyleIdx] = useState(0);
   const [copied, setCopied] = useState(false);
   const style = STYLES[styleIdx];
+
+  const totals = useMemo(() => getTotalsFor(selectedChains), [selectedChains]);
+  const visibleTokens = useMemo(
+    () => DUST_TOKENS.filter((t) => selectedChains.includes(t.chain)),
+    [selectedChains]
+  );
 
   const onCopy = async () => {
     haptic.medium?.();
     try {
       await navigator.clipboard.writeText("https://sweep.app/r/4F7K");
-    } catch (_) {}
+    } catch {
+      // clipboard unavailable; fail silently for prototype
+    }
     setCopied(true);
     setTimeout(() => setCopied(false), 1600);
   };
@@ -32,7 +40,7 @@ export default function Share({ go }) {
   const onPostX = () => {
     haptic.medium?.();
     const text = encodeURIComponent(
-      `Just swept $${TOTAL_FOUND.toFixed(2)} in dust from my wallet. clean wallet > messy wallet ✨ try yours: sweep.app/r/4F7K`
+      `Just swept $${totals.total.toFixed(2)} in dust from my wallet. clean wallet > messy wallet ✨ try yours: sweep.app/r/4F7K`
     );
     window.open(`https://x.com/intent/post?text=${text}`, "_blank");
   };
@@ -50,7 +58,6 @@ export default function Share({ go }) {
           Share your sweep
         </motion.h2>
 
-        {/* Generated card */}
         <motion.div
           key={style.id}
           initial={{ opacity: 0, scale: 0.96 }}
@@ -64,7 +71,6 @@ export default function Share({ go }) {
             boxShadow: `0 0 60px ${style.accent}33`,
           }}
         >
-          {/* Decorative dust */}
           <div
             className="absolute inset-0 opacity-60"
             style={{
@@ -73,7 +79,6 @@ export default function Share({ go }) {
               backgroundPosition: "0 0, 16px 16px",
             }}
           />
-          {/* Halo */}
           <div
             className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[280px] h-[280px] pointer-events-none"
             style={{
@@ -98,7 +103,7 @@ export default function Share({ go }) {
                 I just found
               </div>
               <div
-                className="font-display font-bold tabular-nums my-3"
+                className="font-bold tabular-nums my-3"
                 style={{
                   fontSize: "70px",
                   lineHeight: 1,
@@ -108,7 +113,7 @@ export default function Share({ go }) {
                   fontFamily: "JetBrains Mono, monospace",
                 }}
               >
-                ${TOTAL_FOUND.toFixed(2)}
+                ${totals.total.toFixed(2)}
               </div>
               <div className="text-[15px] text-white/80 max-w-[240px]">
                 hidden in my wallet.
@@ -117,17 +122,41 @@ export default function Share({ go }) {
               <div className="my-5 flex items-center gap-2 w-full">
                 <div className="flex-1 h-px bg-white/15" />
                 <div className="text-[10px] uppercase tracking-[0.2em] text-white/50 font-semibold">
-                  {DUST_TOKENS.length} tokens · 4 chains
+                  {totals.tokenCount} tokens · {totals.chainCount}{" "}
+                  {totals.chainCount === 1 ? "chain" : "chains"}
                 </div>
                 <div className="flex-1 h-px bg-white/15" />
               </div>
 
-              {/* Token row */}
-              <div className="flex gap-1 justify-center flex-wrap max-w-[220px]">
-                {DUST_TOKENS.slice(0, 8).map((t) => (
+              {/* Chain row */}
+              <div className="flex gap-3 justify-center items-center">
+                {selectedChains.map((id) => {
+                  const c = CHAINS[id];
+                  return (
+                    <div key={id} className="flex flex-col items-center gap-1">
+                      <div
+                        className="w-7 h-7 rounded-full flex items-center justify-center text-[12px] font-bold text-white"
+                        style={{
+                          background: `linear-gradient(135deg, ${c.color}, ${c.color}99)`,
+                          boxShadow: `0 0 8px ${c.color}88`,
+                        }}
+                      >
+                        {c.glyph}
+                      </div>
+                      <span className="text-[8px] uppercase tracking-wider text-white/60 font-semibold">
+                        {c.short}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Token icons row */}
+              <div className="flex gap-1 justify-center flex-wrap mt-4 max-w-[220px]">
+                {visibleTokens.slice(0, 8).map((t) => (
                   <div
-                    key={t.symbol}
-                    className="w-6 h-6 rounded-full"
+                    key={`${t.chain}-${t.symbol}`}
+                    className="w-5 h-5 rounded-full"
                     style={{
                       background: `linear-gradient(135deg, ${t.color}, ${t.color}99)`,
                       boxShadow: `0 0 6px ${t.color}66`,
@@ -135,9 +164,11 @@ export default function Share({ go }) {
                     }}
                   />
                 ))}
-                <div className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center text-[8px] font-mono text-white/70">
-                  +{DUST_TOKENS.length - 8}
-                </div>
+                {visibleTokens.length > 8 && (
+                  <div className="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center text-[7px] font-mono text-white/70">
+                    +{visibleTokens.length - 8}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -155,7 +186,6 @@ export default function Share({ go }) {
           </div>
         </motion.div>
 
-        {/* Style switcher */}
         <div className="mt-4">
           <MicroLabel className="block mb-2">Card style</MicroLabel>
           <div className="flex gap-2">
@@ -177,7 +207,6 @@ export default function Share({ go }) {
           </div>
         </div>
 
-        {/* Actions */}
         <div className="mt-4 grid grid-cols-2 gap-2.5">
           <button
             onClick={onPostX}
