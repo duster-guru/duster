@@ -1,8 +1,8 @@
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { useCallback, useState } from "react";
-import { USDC_MINT } from "../lib/config";
+import { FEE_AUTHORITY, USDC_MINT } from "../lib/config";
 import { sendAndConfirmAll } from "../lib/solana/send";
-import { fetchUsdcBalance } from "../lib/solana/tokenAccounts";
+import { fetchOutputBalance } from "../lib/solana/tokenAccounts";
 import { buildSweepTransactions } from "../lib/solana/txBuilder";
 
 /**
@@ -64,6 +64,7 @@ export default function useSweepExecution() {
       }
 
       const outputMint = opts.outputMint || USDC_MINT;
+      const feeBps = opts.feeBps ?? 0;
       setDestMint(outputMint.toBase58());
 
       try {
@@ -72,7 +73,7 @@ export default function useSweepExecution() {
         setProgress(10);
         const [{ blockhash, lastValidBlockHeight }, before] = await Promise.all([
           connection.getLatestBlockhash("confirmed"),
-          fetchUsdcBalance(connection, publicKey, outputMint),
+          fetchOutputBalance(connection, publicKey, outputMint),
         ]);
         setDestBefore(before);
 
@@ -82,6 +83,8 @@ export default function useSweepExecution() {
           dustTokens,
           recentBlockhash: blockhash,
           outputMint,
+          feeBps,
+          feeAuthority: FEE_AUTHORITY,
         });
 
         const skippedTokens = plan
@@ -127,7 +130,7 @@ export default function useSweepExecution() {
         // ---- POST: balance delta on destination mint ----
         setPhase("confirming");
         setProgress(95);
-        const after = await fetchUsdcBalance(connection, publicKey, outputMint);
+        const after = await fetchOutputBalance(connection, publicKey, outputMint);
         setDestAfter(after);
 
         setProgress(100);

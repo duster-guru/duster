@@ -13,9 +13,10 @@ import {
 
 /**
  * Get a Jupiter v6 route quote.
- *   inputMint   — base58 mint string of the dust token
- *   amountRaw   — bigint of raw token amount (decimals NOT applied)
- *   outputMint  — base58 string; defaults to USDC
+ *   inputMint        — base58 mint string of the dust token
+ *   amountRaw        — bigint of raw token amount (decimals NOT applied)
+ *   outputMint       — base58 string; defaults to USDC
+ *   platformFeeBps   — Jupiter referral fee in basis points (0 disables)
  */
 export async function fetchQuote({
   inputMint,
@@ -23,6 +24,7 @@ export async function fetchQuote({
   outputMint = USDC_MINT.toBase58(),
   slippageBps = SLIPPAGE_BPS,
   swapMode = "ExactIn",
+  platformFeeBps = 0,
 }) {
   const params = new URLSearchParams({
     inputMint,
@@ -33,6 +35,9 @@ export async function fetchQuote({
     onlyDirectRoutes: "false",
     asLegacyTransaction: "false",
   });
+  if (platformFeeBps > 0) {
+    params.set("platformFeeBps", String(platformFeeBps));
+  }
   const r = await fetch(`${JUP_QUOTE_URL}?${params}`);
   if (!r.ok) {
     const body = await safeText(r);
@@ -46,14 +51,16 @@ export async function fetchQuote({
 
 /**
  * Get raw swap instructions from Jupiter.
- * The returned `setupInstructions` + `swapInstruction` (+ optional `cleanupInstruction`)
- * are composed into our v0 message later. We discard Jupiter's
- * `computeBudgetInstructions` and set our own (one set per tx, not per swap).
+ *   destinationTokenAccount — user's output ATA; pass null for native SOL output
+ *   feeAccount              — fee recipient ATA owned by FEE_AUTHORITY,
+ *                             matched to the output mint. null disables fee
+ *                             collection (Jupiter ignores platformFeeBps).
  */
 export async function fetchSwapInstructions({
   quoteResponse,
   userPublicKey,
   destinationTokenAccount = null,
+  feeAccount = null,
 }) {
   const body = {
     quoteResponse,
@@ -65,6 +72,9 @@ export async function fetchSwapInstructions({
   };
   if (destinationTokenAccount) {
     body.destinationTokenAccount = destinationTokenAccount.toBase58?.() || destinationTokenAccount;
+  }
+  if (feeAccount) {
+    body.feeAccount = feeAccount.toBase58?.() || feeAccount;
   }
   const r = await fetch(JUP_SWAP_IX_URL, {
     method: "POST",

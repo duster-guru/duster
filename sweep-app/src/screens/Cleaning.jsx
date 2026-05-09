@@ -3,8 +3,8 @@ import { AlertCircle, PenLine } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ProgressBar } from "../components/UI";
 import { ALL_GROUP_IDS, GROUPS } from "../lib/solana/groups";
+import { getOutputAsset } from "../lib/solana/outputs";
 import { SCREENS } from "../lib/screens";
-import { SWEEP_MINT, USDC_MINT } from "../lib/config";
 import { haptic } from "../lib/haptics";
 
 const ease = [0.16, 1, 0.3, 1];
@@ -29,9 +29,11 @@ function getGroupLayout(n) {
  * success       → settle         → coins pulse, auto-advance
  * error         → error overlay  → user can retry or go back
  */
-export default function Cleaning({ go, scan, exec, filteredDust, selectedGroups, sweepMode }) {
+export default function Cleaning({ go, scan, exec, filteredDust, selectedGroups, outputAsset }) {
   const containerRef = useRef(null);
   const launched = useRef(false);
+  const asset = getOutputAsset(outputAsset);
+  const isSweep = asset.id === "sweep";
 
   const presentGroups = useMemo(() => {
     const set = new Set(filteredDust.map((d) => d.groupId));
@@ -57,13 +59,15 @@ export default function Cleaning({ go, scan, exec, filteredDust, selectedGroups,
     });
   }, [filteredDust]);
 
-  // Kick off the real sweep once on mount. Output mint depends on sweep mode:
-  // SWEEP_MINT (configured) when sweepMode is on, USDC otherwise.
+  // Kick off the real sweep once on mount. Output mint + fee come from
+  // the selected outputAsset (USDC, SOL, or SWEEP).
   useEffect(() => {
     if (launched.current) return;
     launched.current = true;
-    const outputMint = sweepMode && SWEEP_MINT ? SWEEP_MINT : USDC_MINT;
-    exec.sweep(filteredDust, { outputMint }).catch(() => {
+    exec.sweep(filteredDust, {
+      outputMint: asset.mint,
+      feeBps: asset.feeBps,
+    }).catch(() => {
       // Error is already on exec.error; UI handles via phase === 'error'.
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -96,7 +100,7 @@ export default function Cleaning({ go, scan, exec, filteredDust, selectedGroups,
         className="absolute inset-0"
         animate={{
           background: showHalos
-            ? "radial-gradient(ellipse at center, rgba(255,210,122,0.15) 0%, rgba(6,7,13,1) 70%)"
+            ? `radial-gradient(ellipse at center, ${asset.accent},${isSweep ? "0.18" : "0.15"}) 0%, rgba(6,7,13,1) 70%)`
             : "radial-gradient(ellipse at center, rgba(124,255,178,0.10) 0%, rgba(6,7,13,1) 70%)",
         }}
         transition={{ duration: 0.6 }}
@@ -268,17 +272,13 @@ export default function Cleaning({ go, scan, exec, filteredDust, selectedGroups,
                   <motion.div
                     className="w-[72px] h-[72px] rounded-full flex items-center justify-center font-display font-bold text-[12px] text-void"
                     style={{
-                      background: sweepMode
-                        ? "radial-gradient(circle at 30% 30%, #FF4FD8, #B5208F)"
-                        : "radial-gradient(circle at 30% 30%, #7CFFB2, #4DA877)",
-                      boxShadow: sweepMode
-                        ? "0 0 24px rgba(255,79,216,0.7), inset 0 2px 0 rgba(255,255,255,0.4)"
-                        : "0 0 24px rgba(124,255,178,0.7), inset 0 2px 0 rgba(255,255,255,0.4)",
+                      background: `radial-gradient(circle at 30% 30%, ${asset.color}, ${asset.color}aa)`,
+                      boxShadow: `0 0 24px ${asset.accent},0.7), inset 0 2px 0 rgba(255,255,255,0.4)`,
                     }}
                     animate={{ scale: [1, 1.04, 1] }}
                     transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
                   >
-                    {sweepMode ? "$SWEEP" : "USDC"}
+                    {asset.symbol}
                   </motion.div>
                   <div
                     className="absolute left-1/2 -translate-x-1/2 mt-1.5 px-2 py-0.5 rounded-full text-[10px] font-display font-bold uppercase tracking-wider whitespace-nowrap"

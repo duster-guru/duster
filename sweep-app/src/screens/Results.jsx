@@ -1,18 +1,19 @@
 import { useWallet } from "@solana/wallet-adapter-react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowRight, Check, ChevronDown, PenLine, Sparkles, Zap } from "lucide-react";
+import { ArrowRight, Check, ChevronDown, PenLine, Sparkles } from "lucide-react";
 import { useMemo, useState } from "react";
 import Particles from "../components/Particles";
 import CountUp from "../components/CountUp";
-import { GhostButton, GlassButton, HeroGlassCard, MicroLabel, PrimaryButton, TokenIcon } from "../components/UI";
+import { GhostButton, HeroGlassCard, MicroLabel, PrimaryButton, TokenIcon } from "../components/UI";
 import { ALL_GROUP_IDS, summarizeGroups, totalsFor } from "../lib/solana/groups";
+import { getAvailableOutputs, getOutputAsset } from "../lib/solana/outputs";
+import { FEE_AUTHORITY } from "../lib/config";
 import { SCREENS } from "../lib/screens";
-import { SWEEP_MINT, SWEEP_BONUS_BPS } from "../lib/config";
 import { haptic } from "../lib/haptics";
 
 const ease = [0.16, 1, 0.3, 1];
 
-export default function Results({ go, scan, selectedGroups, setSelectedGroups, sweepMode, setSweepMode }) {
+export default function Results({ go, scan, selectedGroups, setSelectedGroups, outputAsset, setOutputAsset }) {
   const { disconnect } = useWallet();
   const [revealDone, setRevealDone] = useState(false);
   const [expanded, setExpanded] = useState(false);
@@ -26,8 +27,12 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups, s
     [scan.dust, selectedGroups, presentGroupKey]
   );
 
-  const sweepEnabled = !!SWEEP_MINT;
-  const bonusMultiplier = 1 + SWEEP_BONUS_BPS / 10_000;
+  const availableOutputs = useMemo(() => getAvailableOutputs(), []);
+  const asset = getOutputAsset(outputAsset);
+  const platformFeeUsd = +(totals.total * (asset.feeBps / 10_000)).toFixed(2);
+  const networkFee = 0.01;
+  const rentReclaim = +(totals.tokenCount * 0.31).toFixed(2);
+  const youReceive = +(totals.total - platformFeeUsd - networkFee + rentReclaim).toFixed(2);
 
   const toggleGroup = (id) => {
     if (!presentGroupIds.includes(id)) return;
@@ -47,7 +52,7 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups, s
     .slice(visibleTokens.length)
     .reduce((s, t) => s + (t.valueUsd || 0), 0);
 
-  // Empty state — wallet has no dust under threshold
+  // Empty state
   if (scan.status === "empty" || (scan.status === "ready" && scan.dust.length === 0)) {
     const d = scan.diag || {};
     const hasAccounts = (d.nonZeroCount || 0) > 0;
@@ -80,15 +85,12 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups, s
             <p className="mt-3 text-[14px] text-text-secondary max-w-[300px] mx-auto leading-snug">
               {reason}
             </p>
-
-            {/* Per-bucket counters — useful diagnostics, also confirms RPC + pricing reached */}
             <div className="mt-5 inline-grid grid-cols-2 gap-x-5 gap-y-1 text-[11px] font-mono text-text-muted">
               <span className="text-left">accounts</span><span className="text-right tabular-nums">{d.accountCount ?? 0}</span>
               <span className="text-left">non-zero</span><span className="text-right tabular-nums">{d.nonZeroCount ?? 0}</span>
               <span className="text-left">priced</span><span className="text-right tabular-nums">{d.pricedCount ?? 0}</span>
               <span className="text-left">{">$5"}</span><span className="text-right tabular-nums">{d.aboveThresholdCount ?? 0}</span>
             </div>
-
             <div className="mt-6 flex flex-col gap-2">
               <PrimaryButton onClick={() => { scan.refresh(); }}>Rescan</PrimaryButton>
               <GhostButton onClick={async () => { await disconnect(); go(SCREENS.SPLASH); }}>
@@ -137,7 +139,7 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups, s
           </div>
         </motion.div>
 
-        {/* Groups (only ones the user actually has) */}
+        {/* Group chips */}
         {allGroups.length > 1 && (
           <motion.div
             initial={{ opacity: 0, y: 12 }}
@@ -198,11 +200,116 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups, s
           </motion.div>
         )}
 
+        {/* Output destination — 3-card picker */}
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.6, ease }}
+          className="mt-4"
+        >
+          <div className="flex items-center justify-between mb-2 px-1">
+            <MicroLabel>Convert to</MicroLabel>
+            {asset.id === "sweep" && (
+              <span className="text-[10px] uppercase tracking-wider text-magenta font-bold">
+                lowest fee
+              </span>
+            )}
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            {availableOutputs.map((a) => {
+              const isSelected = a.id === outputAsset;
+              return (
+                <motion.button
+                  key={a.id}
+                  whileTap={{ scale: 0.96 }}
+                  onClick={() => { haptic.light?.(); setOutputAsset(a.id); }}
+                  className="relative flex flex-col items-center gap-1 px-2 py-3 rounded-md transition-colors"
+                  style={{
+                    background: isSelected ? `${a.accent},0.14)` : "rgba(255,255,255,0.03)",
+                    border: `1.5px solid ${isSelected ? a.color : "rgba(255,255,255,0.06)"}`,
+                    boxShadow: isSelected ? `0 0 18px ${a.accent},0.35)` : "none",
+                  }}
+                >
+                  <div
+                    className="w-8 h-8 rounded-full flex items-center justify-center font-display font-bold text-[10px] text-void mb-0.5"
+                    style={{
+                      background: `radial-gradient(circle at 30% 30%, ${a.color}, ${a.color}aa)`,
+                      boxShadow: `0 0 10px ${a.accent},0.45)`,
+                      opacity: isSelected ? 1 : 0.55,
+                    }}
+                  >
+                    {a.symbol === "$SWEEP" ? "✦" : a.symbol[0]}
+                  </div>
+                  <div className="text-[12px] font-display font-bold text-text-primary leading-none">
+                    {a.symbol}
+                  </div>
+                  <div
+                    className="text-[10px] font-mono tabular-nums leading-none"
+                    style={{ color: isSelected ? a.color : "#5A6175" }}
+                  >
+                    {(a.feeBps / 100).toFixed(0)}% fee
+                  </div>
+                </motion.button>
+              );
+            })}
+          </div>
+        </motion.div>
+
+        {/* SWEEP holder benefits — only when SWEEP is selected */}
+        <AnimatePresence>
+          {asset.id === "sweep" && asset.benefits && (
+            <motion.div
+              key="sweep-benefits"
+              initial={{ opacity: 0, height: 0, marginTop: 0 }}
+              animate={{ opacity: 1, height: "auto", marginTop: 12 }}
+              exit={{ opacity: 0, height: 0, marginTop: 0 }}
+              transition={{ duration: 0.32, ease }}
+              className="overflow-hidden"
+            >
+              <div
+                className="rounded-md p-4"
+                style={{
+                  background: "linear-gradient(135deg, rgba(255,79,216,0.12), rgba(91,140,255,0.06))",
+                  border: "1px solid rgba(255,79,216,0.30)",
+                }}
+              >
+                <div className="flex items-center gap-2 mb-3">
+                  <Sparkles size={14} className="text-magenta" />
+                  <span className="text-[11px] uppercase tracking-[0.16em] font-bold text-magenta">
+                    SWEEP holder benefits
+                  </span>
+                </div>
+                <ul className="flex flex-col gap-2">
+                  {asset.benefits.map((b, i) => (
+                    <motion.li
+                      key={i}
+                      initial={{ opacity: 0, x: -6 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ duration: 0.3, delay: i * 0.06 }}
+                      className="flex items-start gap-2.5"
+                    >
+                      <span className="text-magenta text-[14px] leading-none mt-0.5">{b.icon}</span>
+                      <div className="flex-1">
+                        <div className="text-[12px] font-display font-semibold text-text-primary leading-tight">
+                          {b.title}
+                        </div>
+                        <div className="text-[11px] text-text-secondary mt-0.5 leading-snug">
+                          {b.text}
+                        </div>
+                      </div>
+                    </motion.li>
+                  ))}
+                </ul>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* Breakdown */}
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.65, ease }}
+          transition={{ duration: 0.5, delay: 0.75, ease }}
           className="mt-4"
         >
           <HeroGlassCard animated={revealDone}>
@@ -271,13 +378,26 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups, s
               )}
             </ul>
 
+            {/* Fee breakdown — three lines now: platform fee, network fee, rent */}
             <div className="h-px w-full bg-white/10 my-3" />
             <div className="flex items-center justify-between py-1">
-              <span className="text-[13px] text-text-secondary">
-                Network + priority fee
+              <span className="text-[13px] text-text-secondary flex items-center gap-1.5">
+                Platform fee
+                <span
+                  className="text-[10px] font-mono tabular-nums uppercase tracking-wider font-bold"
+                  style={{ color: asset.color }}
+                >
+                  {(asset.feeBps / 100).toFixed(0)}%
+                </span>
               </span>
+              <span className="font-mono text-[13px] text-warn tabular-nums">
+                −${platformFeeUsd.toFixed(2)}
+              </span>
+            </div>
+            <div className="flex items-center justify-between py-1">
+              <span className="text-[13px] text-text-secondary">Network + priority fee</span>
               <span className="font-mono text-[13px] text-text-muted tabular-nums">
-                ~$0.01
+                ~${networkFee.toFixed(2)}
               </span>
             </div>
             <div className="flex items-center justify-between py-1">
@@ -286,77 +406,26 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups, s
                 <span className="text-[10px] uppercase tracking-wider text-sweep font-bold">free SOL</span>
               </span>
               <span className="font-mono text-[13px] text-sweep tabular-nums">
-                +~${(totals.tokenCount * 0.31).toFixed(2)}
+                +~${rentReclaim.toFixed(2)}
               </span>
             </div>
             <div className="h-px w-full bg-white/10 my-2" />
             <div className="flex items-center justify-between py-1">
-              <span className="text-[13px] text-text-primary font-semibold">
-                You receive (est.)
-              </span>
-              <span className="font-mono text-[14px] text-sweep font-bold tabular-nums">
-                ~${(
-                  (sweepMode ? totals.total * bonusMultiplier : totals.total) +
-                  totals.tokenCount * 0.31 -
-                  0.01
-                ).toFixed(2)}{" "}
+              <span className="text-[13px] text-text-primary font-semibold">You receive (est.)</span>
+              <span className="font-mono text-[14px] font-bold tabular-nums" style={{ color: asset.color }}>
+                ~${youReceive.toFixed(2)}{" "}
                 <span className="text-[10px] uppercase tracking-wider opacity-80">
-                  {sweepMode ? "SWEEP" : "USDC"}
+                  {asset.symbol}
                 </span>
               </span>
             </div>
+            {!FEE_AUTHORITY && (
+              <div className="mt-2 text-[10px] text-text-muted leading-snug">
+                Fee account not configured — set <span className="font-mono">VITE_FEE_AUTHORITY</span> to actually collect the platform fee. Display only for now.
+              </div>
+            )}
           </HeroGlassCard>
         </motion.div>
-
-        {/* +10% SWEEP MODE — magenta opt-in banner */}
-        <motion.button
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.85, ease }}
-          onClick={() => {
-            if (!sweepEnabled) return;
-            haptic.light?.();
-            setSweepMode((s) => !s);
-          }}
-          disabled={!sweepEnabled}
-          className="mt-3 w-full flex items-center gap-3 px-4 py-3 rounded-md text-left disabled:opacity-50"
-          style={{
-            border: `1px solid ${sweepMode ? "rgba(255,79,216,0.6)" : "rgba(255,79,216,0.3)"}`,
-            background: sweepMode
-              ? "linear-gradient(135deg, rgba(255,79,216,0.18), rgba(91,140,255,0.10))"
-              : "rgba(255,79,216,0.06)",
-            boxShadow: sweepMode ? "0 0 24px rgba(255,79,216,0.35)" : "none",
-            cursor: sweepEnabled ? "pointer" : "not-allowed",
-          }}
-        >
-          <span className="w-9 h-9 rounded-full bg-magenta/20 flex items-center justify-center shrink-0">
-            <Zap size={18} className="text-magenta" fill="#FF4FD8" />
-          </span>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
-              <span className="font-display font-semibold text-[14px] text-text-primary">
-                +10% SWEEP MODE
-              </span>
-              <span className="text-[10px] uppercase tracking-wider text-magenta font-bold">
-                Bonus
-              </span>
-            </div>
-            <div className="text-[12px] text-text-secondary leading-snug mt-0.5">
-              {sweepEnabled
-                ? <>Route to <span className="text-magenta font-semibold">$SWEEP</span> — bonus airdropped post-sweep.</>
-                : <>Set <span className="font-mono">VITE_SWEEP_MINT</span> in <span className="font-mono">.env.local</span> to enable.</>}
-            </div>
-          </div>
-          <span
-            className={`relative w-10 h-6 rounded-full transition-colors ${sweepMode ? "bg-magenta" : "bg-white/15"}`}
-          >
-            <motion.span
-              className="absolute top-0.5 w-5 h-5 rounded-full bg-white"
-              animate={{ left: sweepMode ? 18 : 2 }}
-              transition={{ duration: 0.2, ease }}
-            />
-          </span>
-        </motion.button>
 
         <motion.div
           initial={{ opacity: 0, y: 16 }}
@@ -366,17 +435,16 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups, s
         >
           <PrimaryButton
             onClick={() => go(SCREENS.CLEANING)}
-            glow={sweepMode ? "magenta" : "mint"}
-            icon={sweepMode ? <Sparkles size={18} /> : <PenLine size={18} strokeWidth={2.5} />}
+            glow={asset.id === "sweep" ? "magenta" : "mint"}
+            icon={asset.id === "sweep" ? <Sparkles size={18} /> : <PenLine size={18} strokeWidth={2.5} />}
             hapticType="medium"
           >
-            {sweepMode ? "Sweep into $SWEEP" : "Clean · 1 signature"}
+            {asset.id === "sweep"
+              ? "Sweep into $SWEEP"
+              : asset.id === "sol"
+              ? "Sweep into SOL"
+              : "Clean · 1 signature"}
           </PrimaryButton>
-          {!sweepMode && (
-            <GlassButton onClick={() => go(SCREENS.CLEANING)}>
-              Keep as USDC
-            </GlassButton>
-          )}
           <div className="flex items-center justify-center gap-1.5 text-[11px] text-text-muted">
             <ArrowRight size={11} className="-rotate-45 text-text-muted" />
             <span>Powered by Jupiter · {totals.groupCount} versioned {totals.groupCount === 1 ? "tx" : "txs"}</span>
@@ -391,3 +459,4 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups, s
     </div>
   );
 }
+

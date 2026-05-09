@@ -29,9 +29,9 @@ export default function App() {
   const [screen, setScreen] = useState(SCREENS.SPLASH);
   // Group selection: which programs to include in this sweep. Default = all.
   const [selectedGroups, setSelectedGroups] = useState(ALL_GROUP_IDS);
-  // +10% SWEEP MODE — when on, dust routes to SWEEP_MINT instead of USDC.
-  // Gated in the UI on whether VITE_SWEEP_MINT is configured.
-  const [sweepMode, setSweepMode] = useState(false);
+  // Sweep destination: "usdc" | "sol" | "sweep". Each maps to a mint + fee
+  // tier in lib/solana/outputs. SWEEP option is gated on VITE_SWEEP_MINT.
+  const [outputAsset, setOutputAsset] = useState("usdc");
 
   const { connected, publicKey } = useWallet();
   const scan = useDustScan();
@@ -65,7 +65,7 @@ export default function App() {
   const go = (next) => {
     if (next === SCREENS.SCAN || next === SCREENS.SPLASH) {
       setSelectedGroups(ALL_GROUP_IDS);
-      setSweepMode(false);
+      setOutputAsset("usdc");
       exec.reset();
     }
     if (next === SCREENS.SCAN && scan.status !== "scanning") {
@@ -109,8 +109,8 @@ export default function App() {
               filteredDust={filteredDust}
               selectedGroups={selectedGroups}
               setSelectedGroups={setSelectedGroups}
-              sweepMode={sweepMode}
-              setSweepMode={setSweepMode}
+              outputAsset={outputAsset}
+              setOutputAsset={setOutputAsset}
             />
           </motion.div>
         </AnimatePresence>

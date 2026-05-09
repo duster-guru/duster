@@ -15,6 +15,7 @@ import {
   PRIORITY_FEE_MICROLAMPORTS,
   TX_PACK_BUDGET,
   USDC_MINT,
+  WSOL_MINT,
 } from "../config";
 import {
   deserializeIx,
@@ -45,7 +46,9 @@ export async function buildSweepTransactions({
   user,
   dustTokens, // [{ mint, ata, amount(BigInt), decimals, programId }]
   recentBlockhash,
-  outputMint = USDC_MINT, // PublicKey of destination
+  outputMint = USDC_MINT,    // PublicKey
+  feeBps = 0,                // platform fee in basis points (0 disables)
+  feeAuthority = null,       // PublicKey owning the fee ATA per output mint
 }) {
   if (!dustTokens.length) return { transactions: [], plan: [] };
   if (!recentBlockhash) {
@@ -53,14 +56,22 @@ export async function buildSweepTransactions({
     recentBlockhash = blockhash;
   }
 
-  // Compute the user's destination ATA once. Whether it exists yet or not,
-  // we use createAssociatedTokenAccountIdempotent on the first tx so it's safe.
-  const userDestAta = getAssociatedTokenAddressSync(
-    outputMint,
-    user,
-    false,
-    TOKEN_PROGRAM_ID
-  );
+  // Native SOL output: Jupiter handles WSOL wrap/unwrap when wrapAndUnwrapSol
+  // is true, so we DON'T create or pass a destination ATA — leaving it null
+  // tells Jupiter to deliver native SOL to the user.
+  const isNativeSol = outputMint.equals(WSOL_MINT);
+
+  const userDestAta = isNativeSol
+    ? null
+    : getAssociatedTokenAddressSync(outputMint, user, false, TOKEN_PROGRAM_ID);
+
+  // Fee account: per-output-mint ATA owned by feeAuthority. Jupiter ignores
+  // platformFeeBps without a feeAccount, so we only enable fee collection
+  // when feeAuthority is configured.
+  const feeAccount = feeAuthority
+    ? getAssociatedTokenAddressSync(outputMint, feeAuthority, false, TOKEN_PROGRAM_ID)
+    : null;
+  const platformFeeBps = feeAccount ? feeBps : 0;
 
   // Step 1: per-token, fetch quote + swap-instructions, collect ALTs.
   // We do this before packing so we know each candidate's serialized size.
@@ -72,12 +83,14 @@ export async function buildSweepTransactions({
         inputMint: t.mint,
         amountRaw: t.amount,
         outputMint: outputMint.toBase58(),
+        platformFeeBps,
         slippageBps: undefined, // use default
       });
       swapJson = await fetchSwapInstructions({
         quoteResponse: quote,
         userPublicKey: user,
         destinationTokenAccount: userDestAta,
+        feeAccount,
       });
     } catch (err) {
       // No route or rate-limited — surface to caller, skip this token
@@ -127,7 +140,9 @@ export async function buildSweepTransactions({
   const transactions = [];
   const plan = [];
   let txIdx = 0;
-  let currentIxs = baseInstructions({ user, userDestAta, outputMint, includeAtaCreate: true });
+  // Skip ATA-create entirely for native SOL output (Jupiter handles it).
+  const includeAtaCreate = !isNativeSol;
+  let currentIxs = baseInstructions({ user, userDestAta, outputMint, includeAtaCreate });
   let currentAltSet = new Set();
 
   const finalize = () => {
