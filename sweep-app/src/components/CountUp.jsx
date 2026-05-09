@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 
 /**
- * Counts from 0 (or `from`) to `to` over `duration` ms with overshoot easing.
- * Renders monospace tabular figures for stable layout.
+ * Animates from the previously displayed value to `to` whenever `to` changes.
+ * First mount: animates from `from` (default 0) with overshoot easing.
+ * Subsequent changes: tweens smoothly from the prior `to`, no jump-back-to-zero.
  */
 export default function CountUp({
   to,
@@ -14,6 +15,7 @@ export default function CountUp({
   onDone = null,
 }) {
   const [value, setValue] = useState(from);
+  const prevTo = useRef(from);
   const startedAt = useRef(0);
   const rafRef = useRef(0);
   const doneRef = useRef(false);
@@ -21,19 +23,22 @@ export default function CountUp({
   useEffect(() => {
     doneRef.current = false;
     startedAt.current = 0;
+    const initial = prevTo.current;
+    const target = to;
 
     const tick = (now) => {
       if (!startedAt.current) startedAt.current = now;
       const t = Math.min(1, (now - startedAt.current) / duration);
-      // Overshoot ease — back-out
+      // Overshoot back-out
       const c1 = 1.70158;
       const c3 = c1 + 1;
       const eased = 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
-      setValue(from + (to - from) * eased);
+      setValue(initial + (target - initial) * eased);
       if (t < 1) {
         rafRef.current = requestAnimationFrame(tick);
       } else {
-        setValue(to);
+        setValue(target);
+        prevTo.current = target;
         if (!doneRef.current) {
           doneRef.current = true;
           onDone?.();

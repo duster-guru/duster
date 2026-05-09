@@ -34,7 +34,8 @@
       "Bash(curl -s -o /dev/null -w \"Tunnel HTTP %{http_code}\\\\n\" --max-time 10 -H \"Bypass-Tunnel-Reminder: true\" https://heavy-towns-stare.loca.lt/)",
       "Bash(curl -s -o /dev/null -w \"Tunnel HTTP %{http_code}\\\\n\" --max-time 10 -H \"Bypass-Tunnel-Reminder: true\" -H \"User-Agent: curl-test\" https://heavy-towns-stare.loca.lt/)",
       "Bash(route -n get 192.168.0.50)",
-      "Bash(sudo -n pfctl -s info)"
+      "Bash(sudo -n pfctl -s info)",
+      "Bash(curl -s -o /dev/null -w \"Dev: HTTP %{http_code}\\\\n\" http://localhost:5173/)"
     ]
   }
 }

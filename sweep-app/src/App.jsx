@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { SCREENS } from "./lib/screens";
+import { ALL_CHAIN_IDS } from "./lib/data";
 import Splash from "./screens/Splash";
 import Connect from "./screens/Connect";
 import Scan from "./screens/Scan";
@@ -24,6 +25,7 @@ const screenComponent = {
 export default function App() {
   const [screen, setScreen] = useState(SCREENS.SPLASH);
   const [sweepMode, setSweepMode] = useState(false);
+  const [selectedChains, setSelectedChains] = useState(ALL_CHAIN_IDS);
 
   // Keep iOS-style fixed viewport on mobile/desktop preview.
   useEffect(() => {
@@ -39,7 +41,14 @@ export default function App() {
   }, []);
 
   const Current = screenComponent[screen];
-  const go = (next) => setScreen(next);
+  const go = (next) => {
+    // Reset selection + sweep mode when starting a new flow
+    if (next === SCREENS.SCAN || next === SCREENS.SPLASH) {
+      setSelectedChains(ALL_CHAIN_IDS);
+      setSweepMode(false);
+    }
+    setScreen(next);
+  };
 
   return (
     <div className="h-full w-full bg-void flex items-center justify-center">
@@ -72,6 +81,8 @@ export default function App() {
               go={go}
               sweepMode={sweepMode}
               setSweepMode={setSweepMode}
+              selectedChains={selectedChains}
+              setSelectedChains={setSelectedChains}
             />
           </motion.div>
         </AnimatePresence>

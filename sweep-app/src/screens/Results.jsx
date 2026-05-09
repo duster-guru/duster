@@ -1,29 +1,53 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowRight, ChevronDown, Sparkles, Zap } from "lucide-react";
-import { useState } from "react";
+import { ArrowRight, Check, ChevronDown, Sparkles, Zap } from "lucide-react";
+import { useMemo, useState } from "react";
 import Particles from "../components/Particles";
 import CountUp from "../components/CountUp";
 import { GhostButton, GlassButton, HeroGlassCard, MicroLabel, PrimaryButton, TokenIcon } from "../components/UI";
-import { DUST_TOKENS, EST_GAS, NET_RECEIVED, TOTAL_FOUND } from "../lib/data";
+import {
+  ALL_CHAIN_IDS,
+  CHAINS,
+  DUST_TOKENS,
+  getChainSummary,
+  getTotalsFor,
+} from "../lib/data";
 import { SCREENS } from "../lib/screens";
 import { haptic } from "../lib/haptics";
 
 const ease = [0.16, 1, 0.3, 1];
 
-export default function Results({ go, sweepMode, setSweepMode }) {
-  const [expanded, setExpanded] = useState(false);
+export default function Results({ go, sweepMode, setSweepMode, selectedChains, setSelectedChains }) {
   const [revealDone, setRevealDone] = useState(false);
+  const [expanded, setExpanded] = useState(false);
 
-  const visible = expanded ? DUST_TOKENS : DUST_TOKENS.slice(0, 4);
-  const remaining = DUST_TOKENS.length - 4;
-  const remainingValue = DUST_TOKENS.slice(4).reduce((s, t) => s + t.value, 0);
+  const chainSummaries = useMemo(() => getChainSummary(ALL_CHAIN_IDS), []);
+  const totals = useMemo(() => getTotalsFor(selectedChains), [selectedChains]);
+
+  const toggleChain = (id) => {
+    haptic.light?.();
+    setSelectedChains((prev) =>
+      prev.includes(id)
+        ? prev.length > 1
+          ? prev.filter((c) => c !== id)
+          : prev // never let user deselect everything
+        : [...prev, id]
+    );
+  };
+
+  const visibleTokens = expanded ? totals.tokens : totals.tokens.slice(0, 4);
+  const remaining = totals.tokens.length - visibleTokens.length;
+  const remainingValue = totals.tokens
+    .slice(visibleTokens.length)
+    .reduce((s, t) => s + t.value, 0);
+
+  const noneSelected = selectedChains.length === 0;
 
   return (
     <div className="relative w-full h-full overflow-hidden">
       <Particles mode="burst" count={60} className="opacity-70" />
 
       <div className="relative z-10 h-full flex flex-col px-5 pt-16 pb-6 overflow-y-auto no-scrollbar">
-        {/* Reveal headline */}
+        {/* Headline */}
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
@@ -33,7 +57,7 @@ export default function Results({ go, sweepMode, setSweepMode }) {
           <MicroLabel color="gold">We found hidden money</MicroLabel>
         </motion.div>
 
-        {/* Money number */}
+        {/* Big number */}
         <motion.div
           initial={{ opacity: 0, scale: 0.92 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -42,24 +66,87 @@ export default function Results({ go, sweepMode, setSweepMode }) {
         >
           <div className="text-[64px] leading-none font-display font-bold text-gradient-found tracking-tight">
             <CountUp
-              to={TOTAL_FOUND}
-              duration={1100}
+              to={totals.total}
+              duration={revealDone ? 380 : 1100}
               prefix="$"
               decimals={2}
-              onDone={() => { haptic.medium?.(); setRevealDone(true); }}
+              onDone={() => { if (!revealDone) { haptic.medium?.(); setRevealDone(true); } }}
             />
           </div>
-          <div className="mt-2 text-[15px] text-text-secondary">
-            across {DUST_TOKENS.length} tokens · 4 chains
+          <div className="mt-2 text-[14px] text-text-secondary">
+            <span className="font-mono tabular-nums">{totals.tokenCount}</span> tokens ·{" "}
+            <span className="font-mono tabular-nums">{totals.chainCount}</span>{" "}
+            {totals.chainCount === 1 ? "chain" : "chains"}
           </div>
         </motion.div>
 
-        {/* Token breakdown */}
+        {/* Chain chips — tap to include/exclude */}
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.55, ease }}
+          className="mt-5"
+        >
+          <div className="flex items-center justify-between mb-2 px-1">
+            <MicroLabel>Networks</MicroLabel>
+            <span className="text-[11px] text-text-muted">
+              tap to include
+            </span>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            {chainSummaries.map((c) => {
+              const selected = selectedChains.includes(c.id);
+              return (
+                <motion.button
+                  key={c.id}
+                  whileTap={{ scale: 0.97 }}
+                  onClick={() => toggleChain(c.id)}
+                  className="relative flex items-center gap-2.5 h-12 px-3 rounded-md text-left transition-colors"
+                  style={{
+                    background: selected ? `${c.color}1A` : "rgba(255,255,255,0.03)",
+                    border: `1.5px solid ${selected ? c.color : "rgba(255,255,255,0.06)"}`,
+                    boxShadow: selected ? `0 0 16px ${c.color}33` : "none",
+                  }}
+                >
+                  <span
+                    className="w-7 h-7 rounded-full flex items-center justify-center text-[13px] font-bold text-white shrink-0"
+                    style={{
+                      background: `linear-gradient(135deg, ${c.color}, ${c.color}99)`,
+                      boxShadow: `0 0 8px ${c.color}55`,
+                      opacity: selected ? 1 : 0.4,
+                    }}
+                  >
+                    {c.glyph}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[12px] font-display font-semibold text-text-primary leading-none truncate">
+                      {c.name}
+                    </div>
+                    <div className="text-[11px] font-mono text-text-muted tabular-nums mt-0.5">
+                      ${c.total.toFixed(2)}
+                    </div>
+                  </div>
+                  <span
+                    className="w-4 h-4 rounded-full flex items-center justify-center shrink-0"
+                    style={{
+                      background: selected ? c.color : "transparent",
+                      border: selected ? "none" : "1.5px solid rgba(255,255,255,0.2)",
+                    }}
+                  >
+                    {selected && <Check size={10} className="text-void" strokeWidth={3.5} />}
+                  </span>
+                </motion.button>
+              );
+            })}
+          </div>
+        </motion.div>
+
+        {/* Breakdown */}
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.7, ease }}
-          className="mt-6"
+          className="mt-4"
         >
           <HeroGlassCard animated={revealDone}>
             <div className="flex items-center justify-between mb-3">
@@ -69,35 +156,42 @@ export default function Results({ go, sweepMode, setSweepMode }) {
             <div className="h-px w-full bg-white/10 mb-2" />
 
             <ul className="flex flex-col">
-              <AnimatePresence initial={false}>
-                {visible.map((t, i) => (
-                  <motion.li
-                    key={t.symbol}
-                    initial={{ opacity: 0, x: -8 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -8 }}
-                    transition={{ duration: 0.3, delay: 0.85 + i * 0.06, ease }}
-                    className="flex items-center gap-3 py-2"
-                  >
-                    <TokenIcon symbol={t.symbol} color={t.color} size={28} />
-                    <div className="flex-1 min-w-0">
-                      <div className="text-[14px] font-display font-semibold text-text-primary leading-none">
-                        {t.symbol}
+              <AnimatePresence initial={false} mode="popLayout">
+                {visibleTokens.map((t, i) => {
+                  const chain = CHAINS[t.chain];
+                  return (
+                    <motion.li
+                      key={`${t.symbol}-${t.chain}`}
+                      layout
+                      initial={{ opacity: 0, x: -8 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -8 }}
+                      transition={{ duration: 0.28, delay: revealDone ? 0 : 0.85 + i * 0.05, ease }}
+                      className="flex items-center gap-3 py-2"
+                    >
+                      <TokenIcon symbol={t.symbol} color={t.color} size={28} />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[14px] font-display font-semibold text-text-primary leading-none">
+                          {t.symbol}
+                        </div>
+                        <div className="text-[11px] mt-0.5 flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full" style={{ background: chain.color }} />
+                          <span className="text-text-muted">{chain.name}</span>
+                        </div>
                       </div>
-                      <div className="text-[11px] text-text-muted mt-0.5">{t.chain}</div>
-                    </div>
-                    <div className="font-mono text-[14px] text-text-primary tabular-nums">
-                      ${t.value.toFixed(2)}
-                    </div>
-                  </motion.li>
-                ))}
+                      <div className="font-mono text-[14px] text-text-primary tabular-nums">
+                        ${t.value.toFixed(2)}
+                      </div>
+                    </motion.li>
+                  );
+                })}
               </AnimatePresence>
 
               {!expanded && remaining > 0 && (
                 <motion.button
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  transition={{ delay: 1.2 }}
+                  transition={{ delay: revealDone ? 0 : 1.2 }}
                   onClick={() => { haptic.light?.(); setExpanded(true); }}
                   className="flex items-center gap-3 py-2 text-left"
                 >
@@ -117,19 +211,23 @@ export default function Results({ go, sweepMode, setSweepMode }) {
 
             <div className="h-px w-full bg-white/10 my-3" />
             <div className="flex items-center justify-between py-1">
-              <span className="text-[13px] text-text-secondary">Est. gas (sponsored)</span>
-              <span className="font-mono text-[13px] text-warn tabular-nums">−${EST_GAS.toFixed(2)}</span>
+              <span className="text-[13px] text-text-secondary">
+                Est. gas · {totals.chainCount} {totals.chainCount === 1 ? "chain" : "chains"}
+              </span>
+              <span className="font-mono text-[13px] text-warn tabular-nums">
+                −${totals.gas.toFixed(2)}
+              </span>
             </div>
             <div className="flex items-center justify-between py-1">
               <span className="text-[13px] text-text-primary font-semibold">You receive</span>
               <span className="font-mono text-[14px] text-sweep font-bold tabular-nums">
-                ${NET_RECEIVED.toFixed(2)}
+                ${totals.net.toFixed(2)}
               </span>
             </div>
           </HeroGlassCard>
         </motion.div>
 
-        {/* Sweep mode banner */}
+        {/* Sweep mode */}
         <motion.button
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
@@ -158,9 +256,7 @@ export default function Results({ go, sweepMode, setSweepMode }) {
               Convert to <span className="text-magenta font-semibold">$SWEEP</span> token instead.
             </div>
           </div>
-          <span
-            className={`relative w-10 h-6 rounded-full transition-colors ${sweepMode ? "bg-magenta" : "bg-white/15"}`}
-          >
+          <span className={`relative w-10 h-6 rounded-full transition-colors ${sweepMode ? "bg-magenta" : "bg-white/15"}`}>
             <motion.span
               className="absolute top-0.5 w-5 h-5 rounded-full bg-white"
               animate={{ left: sweepMode ? 18 : 2 }}
@@ -181,8 +277,11 @@ export default function Results({ go, sweepMode, setSweepMode }) {
             glow={sweepMode ? "magenta" : "mint"}
             icon={sweepMode ? <Sparkles size={18} /> : <ArrowRight size={20} strokeWidth={2.5} />}
             hapticType="medium"
+            className={noneSelected ? "opacity-60 pointer-events-none" : ""}
           >
-            {sweepMode ? "Sweep into $SWEEP" : "Clean My Wallet"}
+            {sweepMode
+              ? `Sweep into $SWEEP · ${totals.chainCount}`
+              : `Clean ${totals.chainCount === 1 ? "1 chain" : `${totals.chainCount} chains`}`}
           </PrimaryButton>
           {!sweepMode && (
             <GlassButton onClick={() => go(SCREENS.CLEANING)}>
