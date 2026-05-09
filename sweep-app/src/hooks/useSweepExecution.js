@@ -7,16 +7,20 @@ import { buildSweepTransactions } from "../lib/solana/txBuilder";
 
 /**
  * Execute the sweep end-to-end:
- *   1. Build v0 VersionedTransactions (Jupiter quote + swap-instructions per token,
- *      packed into 1-3 txs)
- *   2. signAllTransactions  — single wallet prompt
- *   3. sendRawTransaction × N in parallel
- *   4. getSignatureStatuses poll until each lands
- *   5. Re-fetch USDC balance for the post-sweep delta
+ *   1. Snapshot destination-mint balance pre-sweep
+ *   2. Build v0 VersionedTransactions (Jupiter quote + swap-instructions per
+ *      token, packed into 1-3 txs)
+ *   3. signAllTransactions — single wallet prompt
+ *   4. sendRawTransaction × N in parallel
+ *   5. getSignatureStatuses poll until each lands
+ *   6. Re-fetch destination-mint balance for the post-sweep delta
  *
  * Phase machine for UI:
  *   'idle' → 'building' → 'signing' → 'sending' → 'confirming'
  *          → 'success' | 'error'
+ *
+ * Destination is parameterised via opts.outputMint — callers pass USDC_MINT
+ * for the default flow, or a SWEEP token mint for the +10% bonus mode.
  */
 export default function useSweepExecution() {
   const { connection } = useConnection();
@@ -26,7 +30,9 @@ export default function useSweepExecution() {
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState(null);
   const [signatures, setSignatures] = useState([]);
-  const [usdcAfter, setUsdcAfter] = useState(null);
+  const [destBefore, setDestBefore] = useState(null);
+  const [destAfter, setDestAfter] = useState(null);
+  const [destMint, setDestMint] = useState(null);
   const [skipped, setSkipped] = useState([]);
   const [txCount, setTxCount] = useState(0);
 
@@ -35,13 +41,15 @@ export default function useSweepExecution() {
     setProgress(0);
     setError(null);
     setSignatures([]);
-    setUsdcAfter(null);
+    setDestBefore(null);
+    setDestAfter(null);
+    setDestMint(null);
     setSkipped([]);
     setTxCount(0);
   }, []);
 
   const sweep = useCallback(
-    async (dustTokens) => {
+    async (dustTokens, opts = {}) => {
       if (!connected || !publicKey || !signAllTransactions) {
         const e = new Error("Wallet not connected");
         setError(e);
@@ -55,18 +63,25 @@ export default function useSweepExecution() {
         throw e;
       }
 
+      const outputMint = opts.outputMint || USDC_MINT;
+      setDestMint(outputMint.toBase58());
+
       try {
         // ---- BUILD ----
         setPhase("building");
         setProgress(10);
-        const { blockhash, lastValidBlockHeight } =
-          await connection.getLatestBlockhash("confirmed");
+        const [{ blockhash, lastValidBlockHeight }, before] = await Promise.all([
+          connection.getLatestBlockhash("confirmed"),
+          fetchUsdcBalance(connection, publicKey, outputMint),
+        ]);
+        setDestBefore(before);
 
         const { transactions, plan } = await buildSweepTransactions({
           connection,
           user: publicKey,
           dustTokens,
           recentBlockhash: blockhash,
+          outputMint,
         });
 
         const skippedTokens = plan
@@ -97,7 +112,7 @@ export default function useSweepExecution() {
           signedTxs: signed,
           onProgress: ({ confirmed, total }) => {
             const conf = total > 0 ? confirmed / total : 0;
-            setProgress(55 + Math.floor(conf * 35)); // 55 → 90
+            setProgress(55 + Math.floor(conf * 35));
             if (conf > 0) setPhase("confirming");
           },
         });
@@ -109,18 +124,20 @@ export default function useSweepExecution() {
           );
         }
 
-        // ---- POST: USDC delta ----
+        // ---- POST: balance delta on destination mint ----
         setPhase("confirming");
         setProgress(95);
-        const usdc = await fetchUsdcBalance(connection, publicKey, USDC_MINT);
-        setUsdcAfter(usdc);
+        const after = await fetchUsdcBalance(connection, publicKey, outputMint);
+        setDestAfter(after);
 
         setProgress(100);
         setPhase("success");
         return {
           ...result,
           plan,
-          usdcAfter: usdc,
+          destMint: outputMint.toBase58(),
+          destBefore: before,
+          destAfter: after,
           lastValidBlockHeight,
         };
       } catch (e) {
@@ -139,7 +156,12 @@ export default function useSweepExecution() {
     signatures,
     skipped,
     txCount,
-    usdcAfter,
+    destBefore,
+    destAfter,
+    destMint,
+    // Backwards-compat aliases for screens that still reference the USDC names
+    usdcBefore: destBefore,
+    usdcAfter: destAfter,
     sweep,
     reset,
   };
