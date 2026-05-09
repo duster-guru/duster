@@ -76,6 +76,16 @@ export const RENT_PER_ACCOUNT_SOL = 0.00203928;
 // In production, swap to a live price feed (Pyth/Jupiter price API).
 export const SOL_USD_REF = 150;
 
+// $SWEEP/USD reference. Used only to estimate the token amount the user
+// will receive when SWEEP is the output. Real swap math happens in the
+// Jupiter quote — this is purely a UI estimate.
+//   echo 'VITE_SWEEP_USD_REF=0.10' >> .env.local
+export const SWEEP_USD_REF = (() => {
+  const raw = import.meta.env.VITE_SWEEP_USD_REF?.trim();
+  const n = Number(raw);
+  return Number.isFinite(n) && n > 0 ? n : 1;
+})();
+
 // Jupiter public endpoints.
 //   Quote v6 + swap-instructions  — atomic-batch composition
 //   Price v3                      — USD valuation (batched, lightweight)
