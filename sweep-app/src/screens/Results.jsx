@@ -1,6 +1,6 @@
 import { useWallet } from "@solana/wallet-adapter-react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowRight, Check, ChevronDown, PenLine, RefreshCw, Sparkles } from "lucide-react";
+import { ArrowRight, Check, ChevronDown, Eye, EyeOff, PenLine, RefreshCw, Sparkles } from "lucide-react";
 import { useMemo, useState } from "react";
 import Particles from "../components/Particles";
 import CountUp from "../components/CountUp";
@@ -13,10 +13,27 @@ import { haptic } from "../lib/haptics";
 
 const ease = [0.16, 1, 0.3, 1];
 
+const VIEW_KEY = "sweep:ui:advanced";
+
 export default function Results({ go, scan, selectedGroups, setSelectedGroups, outputAsset, setOutputAsset }) {
   const { disconnect } = useWallet();
   const [revealDone, setRevealDone] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  // Simple = default for new users. Power users can flip to advanced once
+  // and we'll remember the preference across sessions.
+  const [simpleMode, setSimpleMode] = useState(() => {
+    try {
+      return localStorage.getItem(VIEW_KEY) !== "1";
+    } catch { return true; }
+  });
+  const toggleMode = () => {
+    haptic.light?.();
+    setSimpleMode((prev) => {
+      const next = !prev;
+      try { localStorage.setItem(VIEW_KEY, next ? "0" : "1"); } catch { /* ignore */ }
+      return next;
+    });
+  };
 
   const allGroups = useMemo(() => summarizeGroups(scan.dust, ALL_GROUP_IDS), [scan.dust]);
   const presentGroupIds = useMemo(() => allGroups.map((g) => g.id), [allGroups]);
@@ -162,6 +179,17 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups, o
               className={`text-text-secondary ${scan.pricesRefreshing ? "animate-spin" : ""}`}
             />
           </button>
+          <button
+            onClick={toggleMode}
+            className="w-5 h-5 rounded-full glass flex items-center justify-center"
+            title={simpleMode ? "Show advanced details" : "Hide advanced details"}
+          >
+            {simpleMode ? (
+              <Eye size={10} className="text-text-secondary" />
+            ) : (
+              <EyeOff size={10} className="text-sweep" />
+            )}
+          </button>
         </motion.div>
 
         <motion.div
@@ -200,7 +228,8 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups, o
             transition={{ duration: 0.32, ease }}
             className="mt-3 flex flex-wrap items-center justify-center gap-1.5"
           >
-            {outputIsSol ? (
+            {(simpleMode || outputIsSol) ? (
+              // Single pill — total value as one number
               <span
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full"
                 style={{
@@ -211,16 +240,19 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups, o
               >
                 <ArrowRight size={12} style={{ color: asset.color }} strokeWidth={2.5} />
                 <span className="text-[12px] font-display font-bold" style={{ color: asset.color }}>
-                  ~{formatTokenAmount(totalSolReceived, asset, livePrices)} SOL
+                  {outputIsSol
+                    ? `~${formatTokenAmount(totalSolReceived, asset, livePrices)} SOL`
+                    : `you get ~$${totalUnlockedUsd.toFixed(2)}`}
                 </span>
                 <span
                   className="text-[10px] uppercase tracking-wider font-bold opacity-70"
                   style={{ color: asset.color }}
                 >
-                  ~${totalUnlockedUsd.toFixed(2)}
+                  {outputIsSol ? `~$${totalUnlockedUsd.toFixed(2)}` : "total"}
                 </span>
               </span>
             ) : (
+              // Advanced two-pill split — surfaces dual-asset arrival
               <>
                 <span
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full"
@@ -261,8 +293,8 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups, o
           </motion.div>
         </motion.div>
 
-        {/* Group chips */}
-        {allGroups.length > 1 && (
+        {/* Group chips — advanced only (most wallets have one program) */}
+        {!simpleMode && allGroups.length > 1 && (
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
@@ -373,7 +405,7 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups, o
                   >
                     {(a.feeBps / 100).toFixed(0)}% fee
                   </div>
-                  {isSelected && a.id !== "usdc" && (
+                  {!simpleMode && isSelected && a.id !== "usdc" && (
                     <div className="flex items-center gap-1 mt-0.5">
                       <span
                         className={`w-1 h-1 rounded-full ${scan.pricesRefreshing ? "animate-pulse" : ""}`}
@@ -444,7 +476,56 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups, o
           )}
         </AnimatePresence>
 
-        {/* Breakdown */}
+        {/* Compact summary — simple mode */}
+        {simpleMode && (
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.75, ease }}
+            className="mt-4"
+          >
+            <HeroGlassCard animated={revealDone}>
+              <div className="flex flex-col gap-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[12px] text-text-secondary">You'll receive</span>
+                  <span className="font-mono text-[14px] font-bold tabular-nums" style={{ color: asset.color }}>
+                    {outputIsSol
+                      ? `~${formatTokenAmount(totalSolReceived, asset, livePrices)} SOL`
+                      : `~${formatTokenAmount(swapOutputAsset, asset, livePrices)} ${asset.symbol}`}
+                  </span>
+                </div>
+                {!outputIsSol && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-[12px] text-text-secondary flex items-center gap-1.5">
+                      + reclaimed rent
+                      <span className="text-[9px] uppercase tracking-wider text-gold font-bold">free SOL</span>
+                    </span>
+                    <span className="font-mono text-[13px] font-bold text-gold tabular-nums">
+                      +{rentReclaimSol.toFixed(4)} SOL
+                    </span>
+                  </div>
+                )}
+                <div className="h-px w-full bg-white/10" />
+                <div className="flex items-center justify-between">
+                  <span className="text-[13px] text-text-primary font-semibold">Total value</span>
+                  <span className="font-mono text-[16px] font-bold text-gradient-found tabular-nums">
+                    ~${totalUnlockedUsd.toFixed(2)}
+                  </span>
+                </div>
+                <button
+                  onClick={toggleMode}
+                  className="mt-1 mx-auto flex items-center gap-1 text-[11px] text-text-muted hover:text-text-secondary"
+                >
+                  <span>show details</span>
+                  <ChevronDown size={12} />
+                </button>
+              </div>
+            </HeroGlassCard>
+          </motion.div>
+        )}
+
+        {/* Full breakdown — advanced mode */}
+        {!simpleMode && (
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
@@ -621,6 +702,7 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups, o
             )}
           </HeroGlassCard>
         </motion.div>
+        )}
 
         <motion.div
           initial={{ opacity: 0, y: 16 }}
