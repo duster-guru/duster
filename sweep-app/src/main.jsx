@@ -1,13 +1,12 @@
+// Polyfills MUST be imported before anything else — Solana SDK modules
+// read globalThis.Buffer at module-init time.
+import "./lib/polyfills";
+
 import { StrictMode } from "react";
-import { Buffer } from "buffer";
 import { createRoot } from "react-dom/client";
 import "./index.css";
 import App from "./App.jsx";
 import SolanaProvider from "./contexts/SolanaProvider.jsx";
-
-// web3.js relies on Buffer at module scope; Vite doesn't polyfill by default.
-if (!window.Buffer) window.Buffer = Buffer;
-if (!globalThis.Buffer) globalThis.Buffer = Buffer;
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>

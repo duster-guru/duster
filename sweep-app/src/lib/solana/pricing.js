@@ -1,12 +1,14 @@
 import { JUP_PRICE_URL } from "../config";
 
 /**
- * Fetch USD prices for a set of mints via Jupiter Price API v2.
- * Returns Map<mint, number> (USD per 1 unit of token, decimals already accounted for).
+ * Fetch USD prices for a set of mints via Jupiter Price API v3.
+ * Returns Map<mint, number> (USD per 1 token unit, decimals already accounted).
  *
- * Chunks the request into 100-mint groups to stay under URL length / API limits.
- * Missing mints are simply absent from the returned map (caller treats as unpriceable
- * and routes them to "no liquidity / skipped").
+ * v3 response shape:
+ *   { "<mint>": { usdPrice: number, decimals, liquidity, blockId, ... } }
+ *
+ * Chunks 100 mints per request. Missing mints are simply absent — caller
+ * decides whether to skip them or surface as "unpriceable".
  */
 export async function fetchPrices(mints) {
   if (!mints || mints.length === 0) return new Map();
@@ -19,17 +21,20 @@ export async function fetchPrices(mints) {
     let r;
     try {
       r = await fetch(url);
-    } catch {
-      continue; // network blip on one chunk shouldn't kill the scan
+    } catch (e) {
+      console.warn("[pricing] fetch failed for chunk", i, e?.message);
+      continue;
     }
-    if (!r.ok) continue;
+    if (!r.ok) {
+      console.warn("[pricing] HTTP", r.status, "on chunk", i);
+      continue;
+    }
 
     let json;
     try { json = await r.json(); } catch { continue; }
 
-    const data = json?.data || {};
-    for (const [mint, v] of Object.entries(data)) {
-      const px = Number(v?.price);
+    for (const [mint, v] of Object.entries(json || {})) {
+      const px = Number(v?.usdPrice);
       if (Number.isFinite(px) && px > 0) out.set(mint, px);
     }
   }
