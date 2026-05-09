@@ -4,6 +4,8 @@ import { Check, Copy, Download } from "lucide-react";
 import { useMemo, useState } from "react";
 import { BackButton, GlassButton, MicroLabel } from "../components/UI";
 import { ALL_GROUP_IDS, GROUPS, summarizeGroups } from "../lib/solana/groups";
+import { getOutputAsset } from "../lib/solana/outputs";
+import { RENT_PER_ACCOUNT_SOL, SOL_USD_REF } from "../lib/config";
 import { SCREENS } from "../lib/screens";
 import { haptic } from "../lib/haptics";
 
@@ -16,17 +18,30 @@ const STYLES = [
   { id: "vapor",   name: "Vapor",   bg: "linear-gradient(160deg, #1a0820 0%, #08060d 100%)", accent: "#FF4FD8" },
 ];
 
-export default function Share({ go, scan, exec, filteredDust }) {
+export default function Share({ go, scan, exec, filteredDust, outputAsset }) {
   const { publicKey } = useWallet();
   const [styleIdx, setStyleIdx] = useState(0);
   const [copied, setCopied] = useState(false);
   const style = STYLES[styleIdx];
+  const asset = getOutputAsset(outputAsset);
+  const outputIsSol = asset.id === "sol";
 
-  const usdcBefore = scan.usdcBefore || 0;
-  const usdcAfter = exec.usdcAfter ?? usdcBefore;
-  const delta = +(usdcAfter - usdcBefore).toFixed(2);
+  // Two accounting buckets — kept separate per architecture rules.
+  const before = exec.destBefore ?? scan.usdcBefore ?? 0;
+  const after = exec.destAfter ?? before;
+  const destDelta = +(after - before).toFixed(6);
 
   const tokenCount = filteredDust.length;
+  const rentReclaimSol = +(tokenCount * RENT_PER_ACCOUNT_SOL).toFixed(6);
+  const rentReclaimUsd = +(rentReclaimSol * SOL_USD_REF).toFixed(2);
+
+  const swapOutputAsset = outputIsSol ? +(destDelta - rentReclaimSol).toFixed(6) : destDelta;
+  const swapOutputUsd = outputIsSol
+    ? +(swapOutputAsset * SOL_USD_REF).toFixed(2)
+    : swapOutputAsset;
+  const totalUnlockedUsd = +(swapOutputUsd + rentReclaimUsd).toFixed(2);
+  // Suppress unused for now; share variants might surface them later.
+  void scan;
   const groupSummaries = useMemo(
     () => summarizeGroups(filteredDust, ALL_GROUP_IDS),
     [filteredDust]
@@ -51,7 +66,7 @@ export default function Share({ go, scan, exec, filteredDust }) {
   const onPostX = () => {
     haptic.medium?.();
     const text = encodeURIComponent(
-      `Just swept $${delta.toFixed(2)} of dust from my Solana wallet. one signature, no approvals. only on solana ✨ try yours: sweep.app/r/4F7K`
+      `Just unlocked ~$${totalUnlockedUsd.toFixed(2)} hidden in my Solana wallet — ${outputIsSol ? `${(swapOutputAsset + rentReclaimSol).toFixed(4)} SOL` : `${asset.symbol} + ${rentReclaimSol.toFixed(4)} SOL rent`}. one signature, no approvals. only on solana ✨ try yours: sweep.app/r/4F7K`
     );
     window.open(`https://x.com/intent/post?text=${text}`, "_blank");
   };
@@ -121,10 +136,15 @@ export default function Share({ go, scan, exec, filteredDust }) {
                   fontFamily: "JetBrains Mono, monospace",
                 }}
               >
-                ${delta.toFixed(2)}
+                ${totalUnlockedUsd.toFixed(2)}
               </div>
               <div className="text-[15px] text-white/80 max-w-[240px]">
                 hidden in my Solana wallet.
+              </div>
+              <div className="text-[10px] text-white/50 uppercase tracking-[0.2em] mt-1.5 font-semibold">
+                {outputIsSol
+                  ? `${(swapOutputAsset + rentReclaimSol).toFixed(4)} SOL total`
+                  : `${asset.symbol} + ${rentReclaimSol.toFixed(4)} SOL rent`}
               </div>
 
               <div className="my-5 flex items-center gap-2 w-full">

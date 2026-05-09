@@ -6,6 +6,7 @@ import Particles from "../components/Particles";
 import { GhostButton, HeroGlassCard, MicroLabel, PrimaryButton } from "../components/UI";
 import { ALL_GROUP_IDS, summarizeGroups } from "../lib/solana/groups";
 import { getOutputAsset } from "../lib/solana/outputs";
+import { RENT_PER_ACCOUNT_SOL, SOL_USD_REF } from "../lib/config";
 import { SCREENS } from "../lib/screens";
 import { haptic } from "../lib/haptics";
 
@@ -13,11 +14,31 @@ const ease = [0.16, 1, 0.3, 1];
 
 export default function Success({ go, scan, exec, filteredDust, outputAsset }) {
   const asset = getOutputAsset(outputAsset);
-  // Real before/after delta from RPC re-fetch on the destination mint.
-  const before = exec.destBefore ?? scan.usdcBefore ?? 0;
+  const outputIsSol = asset.id === "sol";
+
+  // Real on-chain delta on the destination mint.
+  // - For USDC / SWEEP output: this is the swap output ONLY. Rent reclaim
+  //   went separately to native SOL and is NOT reflected here.
+  // - For SOL output: this delta INCLUDES rent reclaim, since both arrive
+  //   as native SOL on the same balance.
+  const before = exec.destBefore ?? 0;
   const after = exec.destAfter ?? before;
-  const delta = +(after - before).toFixed(2);
-  const assetName = asset.symbol;
+  const destDelta = +(after - before).toFixed(6);
+
+  // Rent reclaim is independent of the swap. Value comes from closing
+  // emptied SPL token ATAs — user-owned SOL, not protocol revenue.
+  const tokenCount = filteredDust.length;
+  const rentReclaimSol = +(tokenCount * RENT_PER_ACCOUNT_SOL).toFixed(6);
+  const rentReclaimUsd = +(rentReclaimSol * SOL_USD_REF).toFixed(2);
+
+  // Swap output isolated (subtracting rent only when output IS SOL).
+  const swapOutputAsset = outputIsSol
+    ? +(destDelta - rentReclaimSol).toFixed(6)
+    : destDelta;
+  const swapOutputUsd = outputIsSol
+    ? +(swapOutputAsset * SOL_USD_REF).toFixed(2)
+    : swapOutputAsset;
+  const totalUnlockedUsd = +(swapOutputUsd + rentReclaimUsd).toFixed(2);
 
   // Group breakdown from the dust we actually swept.
   const groupSummaries = useMemo(
@@ -26,7 +47,6 @@ export default function Success({ go, scan, exec, filteredDust, outputAsset }) {
   );
 
   const groupCount = groupSummaries.length;
-  const tokenCount = filteredDust.length;
   const dustTotal = +filteredDust.reduce((s, t) => s + (t.valueUsd || 0), 0).toFixed(2);
 
   useEffect(() => {
@@ -44,9 +64,10 @@ export default function Success({ go, scan, exec, filteredDust, outputAsset }) {
 
   const gridCols = groupCount === 1 ? "grid-cols-1" : "grid-cols-2";
 
-  // Per-group share of the swept value (proportional to dust value swept)
+  // Per-group share of the SWAP OUTPUT only (USD), proportional to dust
+  // value swept. Rent reclaim is shown separately, never split per group.
   const groupShares = groupSummaries.map((g) => {
-    const share = dustTotal > 0 ? (g.total / dustTotal) * delta : 0;
+    const share = dustTotal > 0 ? (g.total / dustTotal) * swapOutputUsd : 0;
     return { ...g, finalAmount: +share.toFixed(2) };
   });
 
@@ -91,29 +112,71 @@ export default function Success({ go, scan, exec, filteredDust, outputAsset }) {
           className="mt-5"
         >
           <HeroGlassCard>
-            <div className="flex items-center justify-between mb-2">
-              <MicroLabel>{assetName} balance</MicroLabel>
-              <span className="font-mono text-[12px] text-text-muted tabular-nums">
-                {before.toFixed(2)} → {after.toFixed(2)}
-              </span>
+            {/* HEADLINE — total value unlocked in USD, not asset-specific */}
+            <div className="text-center mb-3">
+              <MicroLabel color="mint">Total value unlocked</MicroLabel>
+              <div className="font-display font-bold text-[40px] text-gradient-found tabular-nums leading-none mt-1">
+                ~${totalUnlockedUsd.toFixed(2)}
+              </div>
             </div>
 
-            <div className="flex items-baseline justify-center gap-2 my-3">
-              <span className="font-display font-bold text-[40px] text-gradient-found tabular-nums">
-                +${delta.toFixed(2)}
-              </span>
-              <span className="text-[14px] text-text-secondary">{assetName}</span>
+            {/* DUST SWAP — output asset only, NEVER conflated with rent */}
+            <div
+              className="rounded-md p-3 mb-2"
+              style={{
+                background: `${asset.accent},0.08)`,
+                border: `1px solid ${asset.accent},0.30)`,
+              }}
+            >
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[11px] uppercase tracking-[0.16em] font-semibold opacity-90" style={{ color: asset.color }}>
+                  Dust swapped → {asset.symbol}
+                </span>
+                <span className="font-mono text-[10px] text-text-muted tabular-nums">
+                  {before.toFixed(outputIsSol ? 4 : 2)} → {after.toFixed(outputIsSol ? 4 : 2)}
+                </span>
+              </div>
+              <div className="flex items-baseline justify-center gap-1.5">
+                <span className="font-display font-bold text-[28px] tabular-nums" style={{ color: asset.color }}>
+                  +{outputIsSol
+                      ? `${swapOutputAsset.toFixed(4)}`
+                      : `$${swapOutputUsd.toFixed(2)}`}
+                </span>
+                <span className="text-[12px] opacity-80" style={{ color: asset.color }}>
+                  {asset.symbol}
+                </span>
+              </div>
             </div>
 
-            <div className="flex flex-col items-center my-3">
-              <motion.div
-                animate={{ y: [0, 4, 0] }}
-                transition={{ duration: 1.2, repeat: Infinity, ease: "easeInOut" }}
-                className="text-sweep"
-              >
-                <ArrowRight size={20} className="rotate-90" />
-              </motion.div>
-              <span className="text-[10px] tracking-[0.2em] uppercase text-sweep font-bold mt-0.5">SWEPT</span>
+            {/* RENT RECLAIM — separate, native SOL, never merged for non-SOL output */}
+            <div
+              className="rounded-md p-3 mb-3"
+              style={{
+                background: "rgba(255,210,122,0.08)",
+                border: "1px solid rgba(255,210,122,0.30)",
+              }}
+            >
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[11px] uppercase tracking-[0.16em] font-semibold text-gold opacity-90">
+                  Rent reclaimed → SOL
+                </span>
+                <span className="font-mono text-[10px] text-text-muted tabular-nums">
+                  {tokenCount} ATA{tokenCount === 1 ? "" : "s"} closed
+                </span>
+              </div>
+              <div className="flex items-baseline justify-center gap-1.5">
+                <span className="font-display font-bold text-[22px] text-gold tabular-nums">
+                  +{rentReclaimSol.toFixed(4)}
+                </span>
+                <span className="text-[11px] text-gold opacity-80">SOL</span>
+                <span className="text-[10px] text-text-muted ml-1">
+                  ≈ ${rentReclaimUsd.toFixed(2)}
+                </span>
+              </div>
+              <div className="text-[10px] text-text-muted text-center mt-1.5 leading-snug">
+                User-owned SOL previously locked for rent exemption.<br/>
+                Returned directly to your wallet — not protocol revenue.
+              </div>
             </div>
 
             <div className="flex items-center justify-between mb-3">
