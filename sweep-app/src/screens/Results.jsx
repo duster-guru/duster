@@ -155,31 +155,34 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups, o
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.45, delay: 0.1, ease }}
-          className="flex flex-col items-center gap-1.5"
+          className="relative flex items-center justify-center gap-1.5"
         >
-          <div className="flex items-center justify-center gap-1.5">
-            <button
-              onClick={() => { haptic.light?.(); setHintOpen((v) => !v); }}
-              className="flex items-center gap-1"
-              title={`Dust = tokens valued under $${DUST_THRESHOLD_USD}.`}
+          <button
+            onClick={() => { haptic.light?.(); setHintOpen((v) => !v); }}
+            className="flex items-center gap-1"
+            title={`Dust = tokens valued under $${DUST_THRESHOLD_USD}.`}
+          >
+            <span
+              className="text-[11px] font-display font-semibold uppercase tracking-[0.16em] text-gold"
+              style={{ borderBottom: "1px dashed rgba(255,210,122,0.45)", paddingBottom: 1 }}
             >
-              <span
-                className="text-[11px] font-display font-semibold uppercase tracking-[0.16em] text-gold"
-                style={{ borderBottom: "1px dashed rgba(255,210,122,0.45)", paddingBottom: 1 }}
-              >
-                We found hidden money
-              </span>
-              <Info size={10} className="text-gold opacity-70" />
-            </button>
-          </div>
+              We found hidden money
+            </span>
+            <Info size={10} className="text-gold opacity-70" />
+          </button>
+
+          {/* Hint popover — absolutely positioned, overlays the content
+              below without pushing the headline number down. */}
           <AnimatePresence>
             {hintOpen && (
               <motion.div
-                initial={{ opacity: 0, y: -4 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -4 }}
+                initial={{ opacity: 0, y: -4, scale: 0.96 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -4, scale: 0.96 }}
                 transition={{ duration: 0.2 }}
-                className="text-[11px] text-text-muted text-center max-w-[280px] leading-snug px-3 py-1 rounded-md glass"
+                className="absolute left-1/2 -translate-x-1/2 z-40 text-[11px] text-text-muted text-center max-w-[280px] leading-snug px-3 py-2 rounded-md glass-strong"
+                style={{ top: "calc(100% + 6px)", boxShadow: "0 8px 24px rgba(0,0,0,0.6)" }}
+                onClick={() => setHintOpen(false)}
               >
                 Dust = tokens valued under <span className="text-gold font-semibold">${DUST_THRESHOLD_USD}</span>.
                 Anything above is a real position and skipped.
@@ -238,7 +241,7 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups, o
                 <span className="text-[12px] font-display font-bold" style={{ color: asset.color }}>
                   {outputIsSol
                     ? `~${formatTokenAmount(totalSolReceived, asset, livePrices)} SOL`
-                    : `you get ~$${totalUnlockedUsd.toFixed(2)}`}
+                    : `~$${totalUnlockedUsd.toFixed(2)}`}
                 </span>
                 <span
                   className="text-[10px] uppercase tracking-wider font-bold opacity-70"
