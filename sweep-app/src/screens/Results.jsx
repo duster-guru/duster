@@ -440,8 +440,14 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups, o
                   >
                     {(a.feeBps / 100).toFixed(0)}% fee
                   </div>
-                  {!simpleMode && isSelected && a.id !== "usdc" && (
-                    <div className="flex items-center gap-1 mt-0.5">
+                  {/* Price line — render on EVERY card in advanced mode so
+                      heights stay equal regardless of which is selected.
+                      USDC shows $1.00 (it's a stablecoin; pinned). */}
+                  {!simpleMode && (
+                    <div
+                      className="flex items-center gap-1 mt-0.5"
+                      style={{ opacity: isSelected ? 1 : 0.55 }}
+                    >
                       <span
                         className={`w-1 h-1 rounded-full ${scan.pricesRefreshing ? "animate-pulse" : ""}`}
                         style={{
@@ -450,8 +456,15 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups, o
                         }}
                         title={cardLiveOk ? "Live price from Jupiter" : "Using env fallback price (Jupiter unreachable)"}
                       />
-                      <span className="text-[9px] font-mono opacity-70" style={{ color: a.color }}>
-                        ${cardLivePrice >= 0.01 ? cardLivePrice.toFixed(2) : cardLivePrice.toFixed(6)}
+                      <span
+                        className="text-[9px] font-mono tabular-nums"
+                        style={{ color: a.color }}
+                      >
+                        ${cardLivePrice >= 1
+                          ? cardLivePrice.toFixed(2)
+                          : cardLivePrice >= 0.01
+                            ? cardLivePrice.toFixed(2)
+                            : cardLivePrice.toFixed(6)}
                       </span>
                     </div>
                   )}
