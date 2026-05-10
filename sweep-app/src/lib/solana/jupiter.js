@@ -5,6 +5,7 @@ import {
 } from "@solana/web3.js";
 import {
   JUP_QUOTE_URL,
+  JUP_REQUEST_TIMEOUT_MS,
   JUP_SWAP_IX_URL,
   SLIPPAGE_BPS,
   USDC_MINT,
@@ -12,7 +13,29 @@ import {
 } from "../config";
 
 /**
- * Get a Jupiter v6 route quote.
+ * fetch() wrapper that aborts after `timeoutMs`. Rethrows AbortError as a
+ * regular Error so the build loop's per-token try/catch can surface a
+ * useful message and skip the token instead of hanging forever.
+ */
+async function fetchWithTimeout(url, options = {}, timeoutMs = JUP_REQUEST_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } catch (e) {
+    if (e?.name === "AbortError") {
+      const err = new Error(`Jupiter request timed out after ${timeoutMs}ms`);
+      err.cause = "timeout";
+      throw err;
+    }
+    throw e;
+  } finally {
+    clearTimeout(id);
+  }
+}
+
+/**
+ * Get a Jupiter route quote (lite-api swap/v1 — same shape as the older v6).
  *   inputMint        — base58 mint string of the dust token
  *   amountRaw        — bigint of raw token amount (decimals NOT applied)
  *   outputMint       — base58 string; defaults to USDC
@@ -38,7 +61,7 @@ export async function fetchQuote({
   if (platformFeeBps > 0) {
     params.set("platformFeeBps", String(platformFeeBps));
   }
-  const r = await fetch(`${JUP_QUOTE_URL}?${params}`);
+  const r = await fetchWithTimeout(`${JUP_QUOTE_URL}?${params}`);
   if (!r.ok) {
     const body = await safeText(r);
     const err = new Error(`Jupiter quote ${r.status}: ${body || "no body"}`);
@@ -66,7 +89,12 @@ export async function fetchSwapInstructions({
     quoteResponse,
     userPublicKey: userPublicKey.toBase58(),
     wrapAndUnwrapSol: WRAP_AND_UNWRAP_SOL,
-    useSharedAccounts: true,
+    // Shared-accounts mode trips a server-side 500 ("out of range integral
+    // type conversion attempted") for Token-2022 routes and some CLMM
+    // hops. Standard accounts work for every route at the cost of a
+    // slightly larger tx — fine here since we're already packing multiple
+    // swaps per tx.
+    useSharedAccounts: false,
     asLegacyTransaction: false,
     dynamicComputeUnitLimit: false, // we set our own
   };
@@ -76,7 +104,7 @@ export async function fetchSwapInstructions({
   if (feeAccount) {
     body.feeAccount = feeAccount.toBase58?.() || feeAccount;
   }
-  const r = await fetch(JUP_SWAP_IX_URL, {
+  const r = await fetchWithTimeout(JUP_SWAP_IX_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),

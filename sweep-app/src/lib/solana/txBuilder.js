@@ -39,21 +39,22 @@ import {
  * Packs into ~1100 bytes per tx (margin under the 1232 hard limit). When a
  * candidate ix overflows the current tx, we finalize it and start a fresh one.
  *
- * Returns: { transactions: VersionedTransaction[], plan: [{ token, txIdx }] }
+ * Returns: { transactions, plan, blockhash, lastValidBlockHeight }.
+ * The blockhash is fetched JUST IN TIME (right before message compose)
+ * because the Jupiter loop above can take 10–30s+ and Solana blockhashes
+ * expire in ~60s — fetching it upfront caused "Blockhash not found" at
+ * simulation time on slower scans.
  */
 export async function buildSweepTransactions({
   connection,
   user,
   dustTokens, // [{ mint, ata, amount(BigInt), decimals, programId }]
-  recentBlockhash,
   outputMint = USDC_MINT,    // PublicKey
   feeBps = 0,                // platform fee in basis points (0 disables)
   feeAuthority = null,       // PublicKey owning the fee ATA per output mint
 }) {
-  if (!dustTokens.length) return { transactions: [], plan: [] };
-  if (!recentBlockhash) {
-    const { blockhash } = await connection.getLatestBlockhash("confirmed");
-    recentBlockhash = blockhash;
+  if (!dustTokens.length) {
+    return { transactions: [], plan: [], blockhash: null, lastValidBlockHeight: null };
   }
 
   // Native SOL output: Jupiter handles WSOL wrap/unwrap when wrapAndUnwrapSol
@@ -67,10 +68,25 @@ export async function buildSweepTransactions({
 
   // Fee account: per-output-mint ATA owned by feeAuthority. Jupiter ignores
   // platformFeeBps without a feeAccount, so we only enable fee collection
-  // when feeAuthority is configured.
-  const feeAccount = feeAuthority
+  // when feeAuthority is configured. We ALSO verify the ATA exists on-chain
+  // — Jupiter's validator chokes on a non-existent feeAccount with a generic
+  // "out of range integral type conversion attempted" 500. If it isn't
+  // there yet, fall back to no fee collection so the sweep still works
+  // (the operator just needs to create the ATA once to start collecting).
+  let feeAccount = feeAuthority
     ? getAssociatedTokenAddressSync(outputMint, feeAuthority, false, TOKEN_PROGRAM_ID)
     : null;
+  if (feeAccount) {
+    const info = await connection.getAccountInfo(feeAccount, "confirmed");
+    if (!info) {
+      console.warn(
+        `[sweep] feeAccount ${feeAccount.toBase58()} not initialised on-chain — ` +
+        `skipping platform fee for this sweep. Create the ATA owned by FEE_AUTHORITY ` +
+        `for output mint ${outputMint.toBase58()} to enable fee collection.`
+      );
+      feeAccount = null;
+    }
+  }
   const platformFeeBps = feeAccount ? feeBps : 0;
 
   // Step 1: per-token, fetch quote + swap-instructions, collect ALTs.
@@ -93,8 +109,12 @@ export async function buildSweepTransactions({
         feeAccount,
       });
     } catch (err) {
-      // No route or rate-limited — surface to caller, skip this token
-      prepared.push({ token: t, error: err.message || String(err) });
+      // No route or rate-limited — surface to caller, skip this token.
+      // Logged so we can diagnose post-hoc when the user reports a
+      // sweep that produced 0 swaps.
+      const msg = err?.message || String(err);
+      console.warn("[sweep] Jupiter failed for", t.mint, "—", msg);
+      prepared.push({ token: t, error: msg });
       continue;
     }
 
@@ -136,6 +156,14 @@ export async function buildSweepTransactions({
     lookupTables.map((a) => [a.key.toBase58(), a])
   );
 
+  // Step 2.5: fetch a fresh blockhash NOW. The Jupiter loop above can run
+  // for tens of seconds; blockhashes expire after ~150 slots (~60s) so we
+  // need this as close to the user's signature as possible. Packing below
+  // is purely local (no network) so the blockhash is at most a few hundred
+  // ms old when the wallet prompts.
+  const { blockhash: recentBlockhash, lastValidBlockHeight } =
+    await connection.getLatestBlockhash("confirmed");
+
   // Step 3: pack into v0 transactions.
   const transactions = [];
   const plan = [];
@@ -144,9 +172,15 @@ export async function buildSweepTransactions({
   const includeAtaCreate = !isNativeSol;
   let currentIxs = baseInstructions({ user, userDestAta, outputMint, includeAtaCreate });
   let currentAltSet = new Set();
+  // Track whether the CURRENT tx has at least one real swap+close packed in.
+  // Without this, an all-errored batch would still produce a tx containing
+  // only ComputeBudget + ATA-create — the user signs, pays the network fee
+  // and the ATA rent, and nothing actually gets swept. We refuse to finalize
+  // a no-op tx.
+  let currentTxHasSwap = false;
 
   const finalize = () => {
-    if (currentIxs.length <= baseInstructions({}).length) return; // nothing added
+    if (!currentTxHasSwap) return;
     const alts = Array.from(currentAltSet)
       .map((a) => lookupByAddress.get(a))
       .filter(Boolean);
@@ -175,19 +209,21 @@ export async function buildSweepTransactions({
         .map((a) => lookupByAddress.get(a))
         .filter(Boolean),
     });
-    if (size > TX_PACK_BUDGET && currentIxs.length > baseInstructions({}).length) {
+    if (size > TX_PACK_BUDGET && currentTxHasSwap) {
       // Flush current, start fresh
       finalize();
       currentIxs = baseInstructions({ user, userDestAta, outputMint, includeAtaCreate: false });
       currentAltSet = new Set();
+      currentTxHasSwap = false;
     }
     currentIxs.push(...p.ixs);
     p.altAddresses.forEach((a) => currentAltSet.add(a));
+    currentTxHasSwap = true;
     plan.push({ token: p.token, txIdx });
   }
   finalize();
 
-  return { transactions, plan };
+  return { transactions, plan, blockhash: recentBlockhash, lastValidBlockHeight };
 }
 
 function baseInstructions({ user, userDestAta, outputMint = USDC_MINT, includeAtaCreate = false } = {}) {

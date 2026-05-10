@@ -26,8 +26,14 @@ export default function Success({ go, scan, exec, filteredDust, outputAsset }) {
 
   // Rent reclaim is independent of the swap. Value comes from closing
   // emptied SPL token ATAs — user-owned SOL, not protocol revenue.
+  // Count only the tokens that actually swept on-chain. Anything Jupiter
+  // refused stayed in the wallet, its ATA was NOT closed, and pretending
+  // otherwise would be lying to the user (we used to count every selected
+  // dust token here regardless of skipped status).
   const tokenCount = filteredDust.length;
-  const rentReclaimSol = +(tokenCount * RENT_PER_ACCOUNT_SOL).toFixed(6);
+  const skippedCount = exec.skipped?.length ?? 0;
+  const closedAtaCount = Math.max(0, tokenCount - skippedCount);
+  const rentReclaimSol = +(closedAtaCount * RENT_PER_ACCOUNT_SOL).toFixed(6);
   const rentReclaimUsd = +(rentReclaimSol * livePriceSol).toFixed(2);
 
   // Swap output isolated (subtracting rent only when output IS SOL).
@@ -161,7 +167,7 @@ export default function Success({ go, scan, exec, filteredDust, outputAsset }) {
                   Rent reclaimed → SOL
                 </span>
                 <span className="font-mono text-[10px] text-text-muted tabular-nums">
-                  {tokenCount} ATA{tokenCount === 1 ? "" : "s"} closed
+                  {closedAtaCount} ATA{closedAtaCount === 1 ? "" : "s"} closed
                 </span>
               </div>
               <div className="flex items-baseline justify-center gap-1.5">

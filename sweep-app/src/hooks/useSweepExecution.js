@@ -71,21 +71,21 @@ export default function useSweepExecution() {
         // ---- BUILD ----
         setPhase("building");
         setProgress(10);
-        const [{ blockhash, lastValidBlockHeight }, before] = await Promise.all([
-          connection.getLatestBlockhash("confirmed"),
-          fetchOutputBalance(connection, publicKey, outputMint),
-        ]);
+        const before = await fetchOutputBalance(connection, publicKey, outputMint);
         setDestBefore(before);
 
-        const { transactions, plan } = await buildSweepTransactions({
-          connection,
-          user: publicKey,
-          dustTokens,
-          recentBlockhash: blockhash,
-          outputMint,
-          feeBps,
-          feeAuthority: FEE_AUTHORITY,
-        });
+        // buildSweepTransactions fetches a fresh blockhash JIT (after the
+        // slow Jupiter loop, before packing) and returns it so we can scope
+        // confirmation polling to the same expiration window.
+        const { transactions, plan, blockhash, lastValidBlockHeight } =
+          await buildSweepTransactions({
+            connection,
+            user: publicKey,
+            dustTokens,
+            outputMint,
+            feeBps,
+            feeAuthority: FEE_AUTHORITY,
+          });
 
         const skippedTokens = plan
           .filter((p) => p.error)
@@ -93,11 +93,23 @@ export default function useSweepExecution() {
         setSkipped(skippedTokens);
 
         if (transactions.length === 0) {
-          throw new Error(
-            skippedTokens.length
-              ? "No routable dust — every token errored on Jupiter."
-              : "No transactions built."
-          );
+          if (skippedTokens.length) {
+            // Group identical error messages so the user sees a meaningful
+            // root cause ("Jupiter quote 429: rate limited") instead of a
+            // raw count.
+            const reasons = new Map();
+            for (const s of skippedTokens) {
+              const key = s.error || "unknown";
+              reasons.set(key, (reasons.get(key) || 0) + 1);
+            }
+            const summary = Array.from(reasons.entries())
+              .map(([err, n]) => `${n}× ${err}`)
+              .join(" · ");
+            const e = new Error(`No routable dust — Jupiter rejected every token: ${summary}`);
+            e.skipped = skippedTokens;
+            throw e;
+          }
+          throw new Error("No transactions built.");
         }
         setTxCount(transactions.length);
         setProgress(25);
@@ -113,6 +125,7 @@ export default function useSweepExecution() {
         const result = await sendAndConfirmAll({
           connection,
           signedTxs: signed,
+          lastValidBlockHeight,
           onProgress: ({ confirmed, total }) => {
             const conf = total > 0 ? confirmed / total : 0;
             setProgress(55 + Math.floor(conf * 35));

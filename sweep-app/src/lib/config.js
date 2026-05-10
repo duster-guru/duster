@@ -94,15 +94,21 @@ export const SWEEP_USD_REF = (() => {
 })();
 
 // Jupiter public endpoints.
-//   Quote v6 + swap-instructions  — atomic-batch composition
-//   Price v3                      — USD valuation (batched, lightweight)
-//   Tokens v2 search              — symbol/icon/decimals lookup (chunked)
 //
-// (Old /price/v2 and token.jup.ag/strict are dead — removed in late 2024/2025.)
-export const JUP_QUOTE_URL = "https://quote-api.jup.ag/v6/quote";
-export const JUP_SWAP_IX_URL = "https://quote-api.jup.ag/v6/swap-instructions";
+// All hosted on lite-api.jup.ag — quote-api.jup.ag has been retired
+// (returns no response at all, HTTP 000). Direct probes against
+// lite-api/swap/v1/swap-instructions return 200 with the body shape we
+// send, so prior 500s seen during testing were transient and not
+// reproducible from a fresh request.
+export const JUP_QUOTE_URL = "https://lite-api.jup.ag/swap/v1/quote";
+export const JUP_SWAP_IX_URL = "https://lite-api.jup.ag/swap/v1/swap-instructions";
 export const JUP_PRICE_URL = "https://lite-api.jup.ag/price/v3";
 export const JUP_TOKENS_SEARCH_URL = "https://lite-api.jup.ag/tokens/v2/search";
+
+// Per-request timeout for Jupiter fetches. Browser fetch() has no default
+// timeout — without this, a hung TCP connection blocks the build loop
+// indefinitely and burns the recent-blockhash window on the way to signing.
+export const JUP_REQUEST_TIMEOUT_MS = 12_000;
 
 // Native SOL is wrapped to WSOL by Jupiter when a swap input — we set the flag on requests.
 export const WRAP_AND_UNWRAP_SOL = true;
