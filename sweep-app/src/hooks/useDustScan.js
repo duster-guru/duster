@@ -1,6 +1,7 @@
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  CLOSE_ONLY_THRESHOLD_USD,
   DUST_THRESHOLD_USD,
   MIN_SWEEPABLE_USD,
   SWEEP_MINT,
@@ -190,6 +191,9 @@ export default function useDustScan() {
           color: pickColor(t.mint),
           priceUsd: t.priceUsd,
           valueUsd: t.valueUsd,
+          // Sub-cent dust where the swap output is negligible — user is
+          // really sweeping for rent reclaim. UI badges these rows.
+          closeOnly: t.valueUsd < CLOSE_ONLY_THRESHOLD_USD,
           groupId: classifyGroup(t.programId),
         };
       });
@@ -244,10 +248,12 @@ export default function useDustScan() {
         prev.map((d) => {
           const newPrice = newPriceMap.get(d.mint);
           if (newPrice == null || !Number.isFinite(newPrice)) return d;
+          const valueUsd = newPrice * d.uiAmount;
           return {
             ...d,
             priceUsd: newPrice,
-            valueUsd: newPrice * d.uiAmount,
+            valueUsd,
+            closeOnly: valueUsd < CLOSE_ONLY_THRESHOLD_USD,
           };
         })
       );

@@ -664,10 +664,18 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups, o
                       <div className="text-[14px] font-display font-semibold text-text-primary leading-none truncate">
                         {t.symbol}
                       </div>
-                      <div className="text-[11px] mt-0.5 flex items-center gap-1 truncate">
+                      <div className="text-[11px] mt-0.5 flex items-center gap-1.5 truncate">
                         <span className="text-text-muted truncate">
                           {t.uiAmount.toLocaleString(undefined, { maximumFractionDigits: 4 })} {t.symbol}
                         </span>
+                        {t.closeOnly && (
+                          <span
+                            className="text-[9px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded text-gold border border-gold/40 bg-gold/10 leading-none"
+                            title="Swap output is negligible — value comes from rent reclaim"
+                          >
+                            rent only
+                          </span>
+                        )}
                         {t.isUnverified && (
                           <span className="text-warn text-[10px] uppercase tracking-wider">unverified</span>
                         )}

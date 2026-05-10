@@ -73,20 +73,6 @@ export function getEffectivePrice(asset, livePrices) {
 }
 
 /**
- * Sensible display decimals based on the actual price magnitude. Low-priced
- * tokens (<$0.01) need many decimals to be meaningful; high-priced tokens
- * (>$100) only need 4.
- */
-export function decimalsForPrice(price, fallback = 4) {
-  if (!price || price <= 0) return fallback;
-  if (price >= 100) return 4;     // SOL-like
-  if (price >= 1)   return 2;     // USDC-like / SWEEP at $1+
-  if (price >= 0.01) return 2;    // SWEEP at cents
-  if (price >= 0.0001) return 0;  // SWEEP at fractions of a cent
-  return 0;                       // ultra-low — show whole units
-}
-
-/**
  * Convert a USD amount to the output asset's token amount using a live or
  * fallback price.
  */
@@ -96,19 +82,19 @@ export function usdToTokenAmount(usdAmount, asset, livePrices) {
   return usdAmount / price;
 }
 
+// Uniform decimal precision for all "you get" token amounts. Mixing
+// per-asset precision (USDC 2, SOL 4, SWEEP variable) made the output
+// cards visually inconsistent — every row now shows 4 decimals.
+const TOKEN_AMOUNT_DECIMALS = 4;
+
 /**
- * Format a token amount with decimals chosen from the live (or fallback)
- * price magnitude. Returns "1,234.56" style.
+ * Format a token amount for the "you get" displays. Always 4 decimals so
+ * USDC/SOL/SWEEP sit in the same visual column.
  */
-export function formatTokenAmount(amount, asset, livePrices) {
-  if (!asset) return "0";
-  const price = getEffectivePrice(asset, livePrices);
-  const dec = livePrices && livePrices[asset.id]
-    ? decimalsForPrice(price, asset.displayDecimals)
-    : (asset.displayDecimals ?? 4);
+export function formatTokenAmount(amount /* asset, livePrices */) {
   return Number(amount).toLocaleString(undefined, {
-    minimumFractionDigits: dec,
-    maximumFractionDigits: dec,
+    minimumFractionDigits: TOKEN_AMOUNT_DECIMALS,
+    maximumFractionDigits: TOKEN_AMOUNT_DECIMALS,
   });
 }
 

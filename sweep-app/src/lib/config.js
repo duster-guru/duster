@@ -53,9 +53,16 @@ export const FEE_AUTHORITY = (() => {
 // Tunable per UX. Solana dust is typically <$5.
 export const DUST_THRESHOLD_USD = 5;
 
-// Don't bother sweeping tokens whose USD value is below this floor —
-// not worth the priority fee + rounding.
-export const MIN_SWEEPABLE_USD = 0.05;
+// Absolute floor — below this we don't even surface the asset (any priced
+// dust above this counts as sweepable). Kept tiny so micro-balances like
+// 0.01 USDT still appear; the rent reclaim from closing the ATA dominates
+// their value anyway.
+export const MIN_SWEEPABLE_USD = 0.001;
+
+// Below this, the swap output is too small to matter — the user is really
+// sweeping for the rent reclaim. UI tags these rows as "rent only" so the
+// expectation is set before they sign.
+export const CLOSE_ONLY_THRESHOLD_USD = 0.05;
 
 // Swap slippage tolerance for dust (thin liquidity → wider band).
 export const SLIPPAGE_BPS = 300; // 3%
