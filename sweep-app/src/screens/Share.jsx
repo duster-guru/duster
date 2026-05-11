@@ -81,7 +81,7 @@ export default function Share({ go, scan, exec, filteredDust, outputAsset }) {
           transition={{ duration: 0.4, ease }}
           className="font-display text-[22px] font-semibold text-text-primary text-center"
         >
-          Share your sweep
+          Share your clean
         </motion.h2>
 
         <motion.div
@@ -116,7 +116,7 @@ export default function Share({ go, scan, exec, filteredDust, outputAsset }) {
           <div className="relative h-full flex flex-col p-6 z-10">
             <div className="flex items-center justify-between">
               <span className="font-display text-[14px] font-bold tracking-[0.32em]" style={{ color: style.accent }}>
-                SWEEP
+                DUSTER
               </span>
               <span className="font-mono text-[10px] text-white/40">{walletShort}</span>
             </div>
@@ -199,7 +199,7 @@ export default function Share({ go, scan, exec, filteredDust, outputAsset }) {
 
             <div className="flex items-center justify-between">
               <span className="text-[11px] uppercase tracking-[0.16em] text-white/40 font-semibold">
-                sweep.app
+                duster.guru
               </span>
               <span className="text-[11px] font-bold uppercase tracking-[0.18em]" style={{ color: style.accent }}>
                 Try yours →

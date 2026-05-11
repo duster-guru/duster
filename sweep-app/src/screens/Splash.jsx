@@ -58,7 +58,7 @@ export default function Splash({ go }) {
           transition={{ duration: 0.6, ease, delay: 0.35 }}
           className="mt-7 font-display text-[40px] font-bold tracking-[0.32em] text-text-primary"
         >
-          SWEEP
+          DUSTER
         </motion.h1>
 
         <motion.p
@@ -79,7 +79,7 @@ export default function Splash({ go }) {
           className="w-full flex flex-col items-center gap-4"
         >
           <PrimaryButton onClick={() => go(SCREENS.CONNECT)} icon={<ArrowRight size={20} strokeWidth={2.5} />}>
-            Scan Wallet
+            Connect Wallet
           </PrimaryButton>
           <div className="flex items-center gap-2 text-text-muted text-[12px]">
             <Lock size={12} className="text-sweep" />

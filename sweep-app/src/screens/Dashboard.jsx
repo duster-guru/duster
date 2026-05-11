@@ -1,69 +1,61 @@
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { motion } from "framer-motion";
 import { ArrowRight, Copy, ExternalLink, LogOut } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Particles from "../components/Particles";
 import CountUp from "../components/CountUp";
 import { Card, GlassCard, MicroLabel, PrimaryButton } from "../components/UI";
 import { USDC_MINT } from "../lib/config";
-import { fetchUsdcBalance } from "../lib/solana/tokenAccounts";
+import { fetchSolBalance, fetchUsdcBalance } from "../lib/solana/tokenAccounts";
+import { LAMPORTS_PER_SOL } from "@solana/web3.js";
+import { loadHistory, summarize } from "../lib/history";
 import { SCREENS } from "../lib/screens";
 import { haptic } from "../lib/haptics";
 
 const ease = [0.16, 1, 0.3, 1];
 
-// Real local-only stats tracked in localStorage. No backend, no mocking — just
-// counters incremented on every successful sweep.
-const STATS_KEY = "sweep:stats:v1";
+const OUTPUT_LABEL = {
+  usdc: { symbol: "USDC", color: "#7CFFB2" },
+  sol:  { symbol: "SOL",  color: "#9945FF" },
+  sweep:{ symbol: "SWEEP",color: "#FF4FD8" },
+};
 
-function loadStats() {
-  try {
-    const raw = localStorage.getItem(STATS_KEY);
-    if (!raw) return { totalCleaned: 0, sweeps: 0, signatures: 0, tokens: 0 };
-    return { totalCleaned: 0, sweeps: 0, signatures: 0, tokens: 0, ...JSON.parse(raw) };
-  } catch {
-    return { totalCleaned: 0, sweeps: 0, signatures: 0, tokens: 0 };
-  }
+function relativeTime(ts) {
+  const s = Math.max(1, Math.floor((Date.now() - ts) / 1000));
+  if (s < 60)   return `${s}s ago`;
+  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
+  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
+  const d = Math.floor(s / 86400);
+  if (d < 30) return `${d}d ago`;
+  return new Date(ts).toLocaleDateString();
 }
 
-export default function Dashboard({ go, scan, exec }) {
+export default function Dashboard({ go }) {
   const { connection } = useConnection();
   const { publicKey, disconnect, connected } = useWallet();
   const [usdc, setUsdc] = useState(0);
-  const [stats, setStats] = useState(loadStats);
+  const [sol, setSol] = useState(0);
   const [copied, setCopied] = useState(false);
 
-  // Persist sweep into local stats once exec finishes successfully.
-  useEffect(() => {
-    if (exec.phase === "success" && exec.usdcAfter != null) {
-      const before = scan.usdcBefore || 0;
-      const delta = Math.max(0, +(exec.usdcAfter - before).toFixed(2));
-      const sweepCount = (exec.signatures || []).length;
-      const tokensCount = (scan.dust || []).length;
-      const next = {
-        totalCleaned: +(stats.totalCleaned + delta).toFixed(2),
-        sweeps: stats.sweeps + 1,
-        signatures: stats.signatures + sweepCount,
-        tokens: stats.tokens + tokensCount,
-      };
-      try {
-        localStorage.setItem(STATS_KEY, JSON.stringify(next));
-        setStats(next);
-      } catch { /* ignore quota errors */ }
-      // reset exec so we don't double-count on remount
-      exec.reset();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [exec.phase]);
+  // History is keyed by wallet pubkey — reconnecting the same wallet on
+  // this device brings back the rows that Success.jsx wrote.
+  const pubkeyStr = publicKey?.toBase58() ?? null;
+  const records = useMemo(() => loadHistory(pubkeyStr), [pubkeyStr]);
+  const stats = useMemo(() => summarize(records), [records]);
 
-  // Live USDC balance for the connected wallet.
+  // Live balances for the connected wallet — fetched in parallel.
   useEffect(() => {
     if (!connected || !publicKey) return;
     let cancelled = false;
     (async () => {
       try {
-        const v = await fetchUsdcBalance(connection, publicKey, USDC_MINT);
-        if (!cancelled) setUsdc(v);
+        const [usdcBal, lamports] = await Promise.all([
+          fetchUsdcBalance(connection, publicKey, USDC_MINT),
+          fetchSolBalance(connection, publicKey),
+        ]);
+        if (cancelled) return;
+        setUsdc(usdcBal);
+        setSol(lamports / LAMPORTS_PER_SOL);
       } catch { /* ignore */ }
     })();
     return () => { cancelled = true; };
@@ -95,7 +87,7 @@ export default function Dashboard({ go, scan, exec }) {
           className="flex items-start justify-between gap-2"
         >
           <div className="min-w-0 flex-1">
-            <div className="text-[15px] text-text-secondary">Hey, sweeper</div>
+            <div className="text-[15px] text-text-secondary">Hey, duster</div>
             <button
               onClick={onCopyAddress}
               className="font-mono text-[12px] text-text-muted tracking-wider mt-1 inline-flex items-center gap-1.5"
@@ -130,9 +122,9 @@ export default function Dashboard({ go, scan, exec }) {
             </div>
             <div className="mt-3 flex items-center justify-between text-[12px] text-text-muted">
               <span className="font-mono tabular-nums">
-                {stats.sweeps} sweeps · {stats.signatures} signatures
+                {stats.sweeps} sweep{stats.sweeps === 1 ? "" : "s"} · {stats.signatures} signature{stats.signatures === 1 ? "" : "s"}
               </span>
-              <span className="font-mono tabular-nums">{stats.tokens} tokens</span>
+              <span className="font-mono tabular-nums">{stats.tokens} token{stats.tokens === 1 ? "" : "s"}</span>
             </div>
           </GlassCard>
         </motion.div>
@@ -152,19 +144,108 @@ export default function Dashboard({ go, scan, exec }) {
           </Card>
 
           <Card className="p-4">
-            <MicroLabel>Network</MicroLabel>
-            <div className="mt-2 font-display font-bold text-[18px] text-text-primary">
-              Mainnet
+            <MicroLabel>Live SOL</MicroLabel>
+            <div className="mt-2 font-display font-bold text-[24px] text-text-primary tabular-nums">
+              {sol.toFixed(4)}
             </div>
-            <a
-              href={publicKey ? `https://solscan.io/account/${publicKey.toBase58()}` : "#"}
-              target="_blank"
-              rel="noreferrer"
-              className="text-[11px] text-sweep mt-0.5 font-semibold inline-flex items-center gap-1"
-            >
-              Solscan <ExternalLink size={10} />
-            </a>
+            <div className="text-[11px] text-text-muted mt-0.5">native balance</div>
           </Card>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.25, ease }}
+          className="mt-3 flex items-center justify-between px-1"
+        >
+          <span className="text-[11px] text-text-muted font-mono uppercase tracking-wider">
+            Mainnet
+          </span>
+          <a
+            href={publicKey ? `https://solscan.io/account/${publicKey.toBase58()}` : "#"}
+            target="_blank"
+            rel="noreferrer"
+            className="text-[11px] text-sweep font-semibold inline-flex items-center gap-1"
+          >
+            View on Solscan <ExternalLink size={10} />
+          </a>
+        </motion.div>
+
+        {/* History list — chronological per-wallet sweeps. */}
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.3, ease }}
+          className="mt-4"
+        >
+          <div className="flex items-center justify-between mb-2">
+            <MicroLabel>Sweep history</MicroLabel>
+            {records.length > 0 && (
+              <span className="text-[11px] text-text-muted font-mono">
+                {records.length}
+              </span>
+            )}
+          </div>
+          {records.length === 0 ? (
+            <div
+              className="px-4 py-5 rounded-md text-center"
+              style={{
+                background: "rgba(255,255,255,0.025)",
+                border: "1px dashed rgba(255,255,255,0.10)",
+              }}
+            >
+              <div className="text-[13px] text-text-secondary leading-snug">
+                No sweeps yet.
+              </div>
+              <div className="text-[11px] text-text-muted mt-1">
+                Your past cleans will show up here after the first sweep.
+              </div>
+            </div>
+          ) : null}
+          {records.length > 0 && (
+            <div className="flex flex-col gap-2">
+              {records.slice(0, 8).map((r) => {
+                const label = OUTPUT_LABEL[r.outputAsset] ?? OUTPUT_LABEL.usdc;
+                const sig = r.txSigs?.[0];
+                return (
+                  <a
+                    key={(sig ?? "") + r.ts}
+                    href={sig ? `https://solscan.io/tx/${sig}` : "#"}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-3 px-3 py-2.5 rounded-md"
+                    style={{
+                      background: "rgba(255,255,255,0.025)",
+                      border: "1px solid rgba(255,255,255,0.06)",
+                    }}
+                  >
+                    <div
+                      className="w-8 h-8 rounded-full flex items-center justify-center font-display font-bold text-[9px] text-void shrink-0"
+                      style={{
+                        background: `radial-gradient(circle at 30% 30%, ${label.color}, ${label.color}aa)`,
+                      }}
+                    >
+                      {label.symbol === "SWEEP" ? "✦" : label.symbol[0]}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[13px] font-display font-semibold text-text-primary leading-none">
+                        +${(r.totalUnlockedUsd ?? 0).toFixed(2)}
+                        <span className="text-text-muted font-mono text-[11px] ml-1.5">
+                          → {label.symbol}
+                        </span>
+                      </div>
+                      <div className="text-[11px] text-text-muted mt-1 font-mono tabular-nums">
+                        {r.tokenCount} token{r.tokenCount === 1 ? "" : "s"}
+                        {r.skippedCount ? ` · ${r.skippedCount} skipped` : ""}
+                        {" · "}{relativeTime(r.ts)}
+                      </div>
+                    </div>
+                    {sig && <ExternalLink size={12} className="text-text-muted shrink-0" />}
+                  </a>
+                );
+              })}
+            </div>
+          )}
         </motion.div>
 
         <div className="flex-1 min-h-3" />
@@ -172,14 +253,15 @@ export default function Dashboard({ go, scan, exec }) {
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.3, ease }}
+          transition={{ duration: 0.5, delay: 0.4, ease }}
+          className="mt-4"
         >
           <PrimaryButton
             icon={<ArrowRight size={20} strokeWidth={2.5} />}
             hapticType="medium"
             onClick={() => go(SCREENS.SCAN)}
           >
-            Clean Again
+            {records.length > 0 ? "Scan again" : "Scan wallet"}
           </PrimaryButton>
         </motion.div>
       </div>

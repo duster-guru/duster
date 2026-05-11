@@ -41,8 +41,8 @@ export const OUTPUT_ASSETS = {
   },
   sweep: {
     id: "sweep",
-    symbol: "SWEEP",
-    name: "SWEEP",
+    symbol: "DUST",
+    name: "DUST",
     blurb: "Lowest fee + holder rewards.",
     mint: SWEEP_MINT,
     feeBps: FEE_BPS.sweep,
@@ -51,10 +51,14 @@ export const OUTPUT_ASSETS = {
     isNative: false,
     usdRef: SWEEP_USD_REF,
     displayDecimals: SWEEP_USD_REF >= 1 ? 2 : 0,
+    // DUST is the loyalty/governance token — token economics aren't live
+    // yet, so the option renders disabled with a "Coming Soon" badge in
+    // the output picker. UI must check this flag before allowing selection.
+    comingSoon: true,
     benefits: [
-      { icon: "✦", title: "Lowest fee", text: "3% vs 5% USDC — save 40% per sweep." },
-      { icon: "✧", title: "Bonus airdrops", text: "Eligible for monthly SWEEP rewards based on volume." },
-      { icon: "◈", title: "Priority routing", text: "Jupiter route boost for SWEEP holders." },
+      { icon: "✦", title: "Lowest fee", text: "3% vs 5% USDC — save 40% per clean." },
+      { icon: "✧", title: "Bonus airdrops", text: "Eligible for monthly DUST rewards based on volume." },
+      { icon: "◈", title: "Priority routing", text: "Jupiter route boost for DUST holders." },
       { icon: "◊", title: "Governance + staking", text: "Vote on dust threshold + earn yield (coming soon)." },
     ],
   },

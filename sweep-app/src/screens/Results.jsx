@@ -430,7 +430,7 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups, o
                 ref={perksTriggerRef}
                 onClick={() => { haptic.light?.(); setPerksOpen((v) => !v); }}
                 className="text-[10px] uppercase tracking-wider font-bold flex items-center gap-1"
-                title="Tap to see SWEEP holder benefits"
+                title="Tap to see DUST holder benefits"
               >
                 <span className="text-magenta">lowest fee</span>
                 <span
@@ -448,18 +448,40 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups, o
               const isSelected = a.id === outputAsset;
               const cardLivePrice = getEffectivePrice(a, livePrices);
               const cardLiveOk = !!(livePrices && livePrices[a.id]);
+              const isLocked = !!a.comingSoon;
               return (
                 <motion.button
                   key={a.id}
-                  whileTap={{ scale: 0.96 }}
-                  onClick={() => { haptic.light?.(); setOutputAsset(a.id); }}
+                  whileTap={isLocked ? {} : { scale: 0.96 }}
+                  onClick={() => {
+                    if (isLocked) return;
+                    haptic.light?.();
+                    setOutputAsset(a.id);
+                  }}
+                  disabled={isLocked}
+                  aria-disabled={isLocked}
                   className="relative flex flex-col items-center gap-1 px-2 py-3 rounded-md transition-colors"
                   style={{
                     background: isSelected ? `${a.accent},0.14)` : "rgba(255,255,255,0.03)",
                     border: `1.5px solid ${isSelected ? a.color : "rgba(255,255,255,0.06)"}`,
                     boxShadow: isSelected ? `0 0 18px ${a.accent},0.35)` : "none",
+                    opacity: isLocked ? 0.55 : 1,
+                    cursor: isLocked ? "not-allowed" : "pointer",
                   }}
                 >
+                  {/* "Coming soon" ribbon — only on the locked card. */}
+                  {isLocked && (
+                    <span
+                      className="absolute -top-1.5 left-1/2 -translate-x-1/2 px-1.5 py-0.5 rounded-sm text-[8px] uppercase tracking-wider font-bold whitespace-nowrap"
+                      style={{
+                        background: a.color,
+                        color: "#0a0a0a",
+                        boxShadow: `0 0 10px ${a.accent},0.5)`,
+                      }}
+                    >
+                      Coming soon
+                    </span>
+                  )}
                   {scan.outputIcons?.[a.id] ? (
                     <img
                       src={scan.outputIcons[a.id]}
@@ -467,8 +489,9 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups, o
                       className="w-8 h-8 rounded-full mb-0.5 object-cover"
                       style={{
                         boxShadow: `0 0 10px ${a.accent},0.45)`,
-                        opacity: isSelected ? 1 : 0.55,
+                        opacity: isLocked ? 0.6 : isSelected ? 1 : 0.55,
                         background: `radial-gradient(circle at 30% 30%, ${a.color}33, transparent)`,
+                        filter: isLocked ? "grayscale(0.3)" : "none",
                       }}
                       onError={(e) => { e.currentTarget.style.display = "none"; }}
                     />
@@ -478,10 +501,11 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups, o
                       style={{
                         background: `radial-gradient(circle at 30% 30%, ${a.color}, ${a.color}aa)`,
                         boxShadow: `0 0 10px ${a.accent},0.45)`,
-                        opacity: isSelected ? 1 : 0.55,
+                        opacity: isLocked ? 0.6 : isSelected ? 1 : 0.55,
+                        filter: isLocked ? "grayscale(0.3)" : "none",
                       }}
                     >
-                      {a.symbol === "SWEEP" ? "✦" : a.symbol[0]}
+                      {a.symbol === "DUST" ? "✦" : a.symbol[0]}
                     </div>
                   )}
                   <div className="text-[12px] font-display font-bold text-text-primary leading-none">
@@ -552,7 +576,7 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups, o
                 <div className="flex items-center gap-2 mb-3">
                   <Sparkles size={14} className="text-magenta" />
                   <span className="text-[11px] uppercase tracking-[0.16em] font-bold text-magenta">
-                    SWEEP holder benefits
+                    DUST holder benefits
                   </span>
                 </div>
                 <ul className="flex flex-col gap-2">
@@ -575,57 +599,6 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups, o
           </AnimatePresence>
         </motion.div>
 
-        {/* SWEEP holder benefits — advanced mode only.
-            Animation: simple opacity+y fade, no height-auto (avoids the
-            mid-animation clipping bug when user toggles between cards). */}
-        <AnimatePresence mode="wait">
-          {!simpleMode && asset.id === "sweep" && asset.benefits && (
-            <motion.div
-              key="sweep-benefits"
-              initial={{ opacity: 0, y: -6 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -6 }}
-              transition={{ duration: 0.28, ease }}
-              className="mt-3"
-            >
-              <div
-                className="rounded-md p-4"
-                style={{
-                  background: "linear-gradient(135deg, rgba(255,79,216,0.12), rgba(91,140,255,0.06))",
-                  border: "1px solid rgba(255,79,216,0.30)",
-                }}
-              >
-                <div className="flex items-center gap-2 mb-3">
-                  <Sparkles size={14} className="text-magenta" />
-                  <span className="text-[11px] uppercase tracking-[0.16em] font-bold text-magenta">
-                    SWEEP holder benefits
-                  </span>
-                </div>
-                <ul className="flex flex-col gap-2">
-                  {asset.benefits.map((b, i) => (
-                    <motion.li
-                      key={i}
-                      initial={{ opacity: 0, x: -6 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ duration: 0.3, delay: i * 0.06 }}
-                      className="flex items-start gap-2.5"
-                    >
-                      <span className="text-magenta text-[14px] leading-none mt-0.5">{b.icon}</span>
-                      <div className="flex-1">
-                        <div className="text-[12px] font-display font-semibold text-text-primary leading-tight">
-                          {b.title}
-                        </div>
-                        <div className="text-[11px] text-text-secondary mt-0.5 leading-snug">
-                          {b.text}
-                        </div>
-                      </div>
-                    </motion.li>
-                  ))}
-                </ul>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
 
         {/* Single card — token list always; math detail varies by mode.
             Simple mode adds the compact 3-line summary at the bottom.
@@ -880,9 +853,9 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups, o
             hapticType="medium"
           >
             {asset.id === "sweep"
-              ? "Sweep into SWEEP"
+              ? "Clean into DUST"
               : asset.id === "sol"
-              ? "Sweep into SOL"
+              ? "Clean into SOL"
               : "Clean · 1 signature"}
           </PrimaryButton>
           <div className="flex items-center justify-center gap-1.5 text-[11px] text-text-muted">

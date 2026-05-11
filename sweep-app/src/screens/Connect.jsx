@@ -104,7 +104,7 @@ export default function Connect({ go }) {
                     On iOS? Open inside your wallet
                   </div>
                   <div className="text-[11px] text-text-secondary mt-0.5 leading-snug">
-                    iOS Safari + Chrome can't see installed wallet apps. Tap below to open SWEEP inside your wallet's built-in browser.
+                    iOS Safari + Chrome can't see installed wallet apps. Tap below to open Duster inside your wallet's built-in browser.
                   </div>
                 </div>
               </div>
@@ -137,7 +137,7 @@ export default function Connect({ go }) {
                 </p>
                 <p className="text-[12px] text-text-secondary mt-1.5 leading-snug">
                   {onIOS ? (
-                    <>Use one of the buttons above to open SWEEP inside your wallet app.</>
+                    <>Use one of the buttons above to open Duster inside your wallet app.</>
                   ) : (
                     <>Install <a className="text-sweep underline" href="https://phantom.com/" target="_blank" rel="noreferrer">Phantom</a>,{" "}
                     <a className="text-sweep underline" href="https://solflare.com/" target="_blank" rel="noreferrer">Solflare</a>, or{" "}

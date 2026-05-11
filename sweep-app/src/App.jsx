@@ -44,7 +44,12 @@ export default function App() {
   // react-hooks/set-state-in-effect lint, with no observable difference.
   useEffect(() => {
     if (connected && (screen === SCREENS.SPLASH || screen === SCREENS.CONNECT)) {
-      queueMicrotask(() => setScreen(SCREENS.SCAN));
+      // Wallet-as-login: always land on the dashboard after connect. The
+      // dashboard shows the connected identity (wallet pill), live USDC,
+      // and history — or a first-run empty state telling the user to
+      // start their first sweep. This keeps "you are logged in" visible
+      // and gives a single home for history access.
+      queueMicrotask(() => setScreen(SCREENS.DASHBOARD));
     }
     if (!connected && (screen !== SCREENS.SPLASH && screen !== SCREENS.CONNECT)) {
       // Wallet disconnected mid-flow — kick back to splash.

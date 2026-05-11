@@ -1,18 +1,21 @@
 import confetti from "canvas-confetti";
 import { motion } from "framer-motion";
 import { ArrowRight, ExternalLink, PenLine, Sparkles } from "lucide-react";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
+import { useWallet } from "@solana/wallet-adapter-react";
 import Particles from "../components/Particles";
-import { GhostButton, HeroGlassCard, MicroLabel, PrimaryButton } from "../components/UI";
+import { HeroGlassCard, MicroLabel, PrimaryButton } from "../components/UI";
 import { ALL_GROUP_IDS, summarizeGroups } from "../lib/solana/groups";
 import { formatTokenAmount, getEffectivePrice, getOutputAsset } from "../lib/solana/outputs";
 import { RENT_PER_ACCOUNT_SOL } from "../lib/config";
+import { addRecord } from "../lib/history";
 import { SCREENS } from "../lib/screens";
 import { haptic } from "../lib/haptics";
 
 const ease = [0.16, 1, 0.3, 1];
 
 export default function Success({ go, scan, exec, filteredDust, outputAsset }) {
+  const { publicKey } = useWallet();
   const asset = getOutputAsset(outputAsset);
   const outputIsSol = asset.id === "sol";
   const livePrices = scan.outputPrices;
@@ -66,6 +69,49 @@ export default function Success({ go, scan, exec, filteredDust, outputAsset }) {
     setTimeout(() => fire({ x: 0.3, y: 0.5 }, 40), 200);
     setTimeout(() => fire({ x: 0.7, y: 0.5 }, 40), 350);
   }, []);
+
+  // Persist this sweep into the per-wallet local history exactly once.
+  // The addRecord() helper de-dupes on the primary tx signature, so even
+  // if this effect fires twice (StrictMode) we won't double-write — but
+  // we also gate it with a ref so we don't recompute the record body on
+  // every render.
+  const persisted = useRef(false);
+  useEffect(() => {
+    if (persisted.current) return;
+    if (!publicKey) return;
+    if (!exec.signatures?.length) return;
+    persisted.current = true;
+    addRecord(publicKey.toBase58(), {
+      outputAsset: asset.id,
+      // For USDC/SWEEP this is just the swap output; for SOL it also
+      // includes rent reclaim because both arrive in native SOL.
+      outputAmount: destDelta,
+      outputUsd: swapOutputUsd,
+      rentSol: rentReclaimSol,
+      rentUsd: rentReclaimUsd,
+      totalUnlockedUsd,
+      tokenCount: closedAtaCount,
+      skippedCount,
+      txSigs: exec.signatures,
+      dust: filteredDust.map((t) => ({
+        symbol: t.symbol,
+        valueUsd: t.valueUsd,
+        logoURI: t.logoURI || null,
+      })),
+    });
+  }, [
+    publicKey,
+    exec.signatures,
+    asset.id,
+    destDelta,
+    swapOutputUsd,
+    rentReclaimSol,
+    rentReclaimUsd,
+    totalUnlockedUsd,
+    closedAtaCount,
+    skippedCount,
+    filteredDust,
+  ]);
 
   const gridCols = groupCount === 1 ? "grid-cols-1" : "grid-cols-2";
 
@@ -268,7 +314,7 @@ export default function Success({ go, scan, exec, filteredDust, outputAsset }) {
             onClick={() => go(SCREENS.SHARE)}
             hapticType="medium"
           >
-            Share Your Sweep
+            Share Your Clean
           </PrimaryButton>
 
           <button
@@ -278,9 +324,12 @@ export default function Success({ go, scan, exec, filteredDust, outputAsset }) {
             Scan again →
           </button>
 
-          <div className="flex justify-center">
-            <GhostButton onClick={() => go(SCREENS.DASHBOARD)}>Done</GhostButton>
-          </div>
+          <button
+            onClick={() => { haptic.light?.(); go(SCREENS.DASHBOARD); }}
+            className="text-center text-[13px] text-text-secondary font-semibold py-2"
+          >
+            View history →
+          </button>
         </motion.div>
       </div>
     </div>
