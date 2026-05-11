@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import { ArrowRight, Lock } from "lucide-react";
 import Particles from "../components/Particles";
 import { PrimaryButton } from "../components/UI";
+import VersionBadge from "../components/VersionBadge";
 import { SCREENS } from "../lib/screens";
 
 const ease = [0.16, 1, 0.3, 1];
@@ -85,6 +86,7 @@ export default function Splash({ go }) {
             <Lock size={12} className="text-sweep" />
             <span>No signing. Read-only access.</span>
           </div>
+          <VersionBadge className="mt-1" />
         </motion.div>
       </div>
     </div>

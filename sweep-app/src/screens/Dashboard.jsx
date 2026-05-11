@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import Particles from "../components/Particles";
 import CountUp from "../components/CountUp";
 import PortfolioChart from "../components/PortfolioChart";
+import VersionBadge from "../components/VersionBadge";
 import { Card, GlassCard, MicroLabel, PrimaryButton } from "../components/UI";
 import { fetchSolBalance } from "../lib/solana/tokenAccounts";
 import { LAMPORTS_PER_SOL } from "@solana/web3.js";
@@ -208,9 +209,12 @@ export default function Dashboard({ go, scan }) {
           transition={{ duration: 0.5, delay: 0.25, ease }}
           className="mt-3 flex items-center justify-between px-1"
         >
-          <span className="text-[11px] text-text-muted font-mono uppercase tracking-wider">
-            Mainnet
-          </span>
+          <div className="flex items-center gap-3">
+            <span className="text-[11px] text-text-muted font-mono uppercase tracking-wider">
+              Mainnet
+            </span>
+            <VersionBadge />
+          </div>
           <a
             href={publicKey ? `https://solscan.io/account/${publicKey.toBase58()}` : "#"}
             target="_blank"
