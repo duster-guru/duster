@@ -6,6 +6,8 @@ import {
 import {
   createAssociatedTokenAccountIdempotentInstruction,
   createCloseAccountInstruction,
+  createTransferCheckedInstruction,
+  getMint,
   TOKEN_PROGRAM_ID,
   TOKEN_2022_PROGRAM_ID,
   getAssociatedTokenAddressSync,
@@ -66,13 +68,20 @@ export async function buildSweepTransactions({
     ? null
     : getAssociatedTokenAddressSync(outputMint, user, false, TOKEN_PROGRAM_ID);
 
-  // Fee account: per-output-mint ATA owned by feeAuthority. Jupiter ignores
-  // platformFeeBps without a feeAccount, so we only enable fee collection
-  // when feeAuthority is configured. We ALSO verify the ATA exists on-chain
-  // — Jupiter's validator chokes on a non-existent feeAccount with a generic
-  // "out of range integral type conversion attempted" 500. If it isn't
-  // there yet, fall back to no fee collection so the sweep still works
-  // (the operator just needs to create the ATA once to start collecting).
+  // Fee account: per-output-mint ATA owned by feeAuthority.
+  //
+  // We DO NOT pass feeAccount/platformFeeBps to Jupiter — their lite-api
+  // fee-collection path is currently broken (HTTP 500 "out of range integral
+  // type conversion attempted" across every route when feeAccount is set).
+  // Instead we self-collect: after Jupiter's swap deposits the full output
+  // into the user's ATA, we append our own SPL transferChecked ix that
+  // siphons `feeBps` of the slippage-floor amount into our fee ATA. Same
+  // atomic batch, single wallet prompt, exact fee math under our control.
+  //
+  // Skipped when:
+  //   - feeAuthority is unset (no fee collection configured)
+  //   - the fee ATA doesn't exist on-chain (operator hasn't initialised it)
+  //   - output is native SOL (would require WSOL handling — deferred)
   let feeAccount = feeAuthority
     ? getAssociatedTokenAddressSync(outputMint, feeAuthority, false, TOKEN_PROGRAM_ID)
     : null;
@@ -87,26 +96,35 @@ export async function buildSweepTransactions({
       feeAccount = null;
     }
   }
-  const platformFeeBps = feeAccount ? feeBps : 0;
+  const collectFee = !!feeAccount && !isNativeSol && feeBps > 0;
+  let outputDecimals = null;
+  if (collectFee) {
+    const mintInfo = await getMint(connection, outputMint, "confirmed", TOKEN_PROGRAM_ID);
+    outputDecimals = mintInfo.decimals;
+  }
 
   // Step 1: per-token, fetch quote + swap-instructions, collect ALTs.
   // We do this before packing so we know each candidate's serialized size.
   const prepared = [];
   for (const t of dustTokens) {
     let swapJson;
+    let quote;
     try {
-      const quote = await fetchQuote({
+      quote = await fetchQuote({
         inputMint: t.mint,
         amountRaw: t.amount,
         outputMint: outputMint.toBase58(),
-        platformFeeBps,
+        // Jupiter's fee path is broken (see comment above feeAccount block) —
+        // we don't ask them to embed platform fee in the quote and we don't
+        // pass feeAccount to swap-instructions. Self-collect after the swap.
+        platformFeeBps: 0,
         slippageBps: undefined, // use default
       });
       swapJson = await fetchSwapInstructions({
         quoteResponse: quote,
         userPublicKey: user,
         destinationTokenAccount: userDestAta,
-        feeAccount,
+        feeAccount: null,
       });
     } catch (err) {
       // No route or rate-limited — surface to caller, skip this token.
@@ -126,6 +144,28 @@ export async function buildSweepTransactions({
       ? deserializeIx(swapJson.cleanupInstruction)
       : null;
 
+    // Self-collected platform fee: transfer `feeBps` of the slippage-floor
+    // output to our fee ATA. We charge on otherAmountThreshold (the worst
+    // case Jupiter guarantees) so the transfer can never exceed the user's
+    // actual received balance.
+    let feeTransferIx = null;
+    if (collectFee && quote?.otherAmountThreshold) {
+      const minOut = BigInt(quote.otherAmountThreshold);
+      const feeAmount = (minOut * BigInt(feeBps)) / BigInt(10000);
+      if (feeAmount > 0n) {
+        feeTransferIx = createTransferCheckedInstruction(
+          userDestAta,     // source — user's destination ATA (just filled by Jupiter)
+          outputMint,      // mint
+          feeAccount,      // destination — fee collector's ATA
+          user,            // owner (signs)
+          feeAmount,
+          outputDecimals,
+          [],
+          TOKEN_PROGRAM_ID
+        );
+      }
+    }
+
     // Close the *emptied* source ATA so user reclaims rent. Programmed below
     // (after the swap) per token. The close authority is the wallet itself.
     const closeIx = createCloseAccountInstruction(
@@ -141,7 +181,12 @@ export async function buildSweepTransactions({
     prepared.push({
       token: t,
       altAddresses: swapJson.addressLookupTableAddresses || [],
-      ixs: [...setupIxs, swapIx, cleanupIx, closeIx].filter(Boolean),
+      // Order matters: setup → Jupiter swap → Jupiter cleanup → our fee
+      // siphon → close source ATA. The fee transfer must run AFTER
+      // Jupiter deposits output into userDestAta and BEFORE we close the
+      // source ATA (source close doesn't depend on it, but keeping the
+      // close last preserves the existing per-token bundle shape).
+      ixs: [...setupIxs, swapIx, cleanupIx, feeTransferIx, closeIx].filter(Boolean),
     });
   }
 
