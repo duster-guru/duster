@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630" fill="none">
+  <defs>
+    <!-- App brand gradients, identical palette to favicon -->
+    <linearGradient id="bg" x1="0" y1="0" x2="1200" y2="630" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#0E1119"/>
+      <stop offset="50%" stop-color="#161A26"/>
+      <stop offset="100%" stop-color="#06070D"/>
+    </linearGradient>
+    <radialGradient id="halo" cx="20%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#a855f7" stop-opacity="0.35"/>
+      <stop offset="60%" stop-color="#7c3aed" stop-opacity="0.10"/>
+      <stop offset="100%" stop-color="#a855f7" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="duster-feathers" x1="240" y1="100" x2="240" y2="320" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#e9d5ff"/>
+      <stop offset="55%" stop-color="#a855f7"/>
+      <stop offset="100%" stop-color="#7c3aed"/>
+    </linearGradient>
+    <linearGradient id="duster-tip" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#c084fc"/>
+      <stop offset="100%" stop-color="#47bfff"/>
+    </linearGradient>
+    <linearGradient id="duster-handle" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#a855f7"/>
+      <stop offset="100%" stop-color="#6b21d6"/>
+    </linearGradient>
+    <linearGradient id="found" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#7CFFB2"/>
+      <stop offset="50%" stop-color="#5B8CFF"/>
+      <stop offset="100%" stop-color="#FF6EE0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background + ambient halo -->
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect width="1200" height="630" fill="url(#halo)"/>
+
+  <!-- Hex frame around the duster mark, mirrors the splash treatment -->
+  <g transform="translate(120,165)">
+    <polygon points="120,0 240,60 240,180 120,240 0,180 0,60"
+             fill="rgba(168,85,247,0.10)" stroke="rgba(168,85,247,0.55)" stroke-width="2"/>
+    <g transform="translate(60, 30) scale(1.875)">
+      <!-- 64x64 duster mark, scaled up 1.875x = 120x120 -->
+      <circle cx="32" cy="22" r="24" fill="url(#halo)" opacity="0.6"/>
+      <g stroke="url(#duster-feathers)" stroke-width="3.5" stroke-linecap="round">
+        <line x1="32" y1="34" x2="13" y2="15"/>
+        <line x1="32" y1="34" x2="21" y2="4"/>
+        <line x1="32" y1="34" x2="32" y2="2"/>
+        <line x1="32" y1="34" x2="43" y2="4"/>
+        <line x1="32" y1="34" x2="51" y2="15"/>
+      </g>
+      <circle cx="13" cy="15" r="2.2" fill="url(#duster-tip)"/>
+      <circle cx="21" cy="4"  r="2.2" fill="url(#duster-tip)"/>
+      <circle cx="32" cy="2"  r="2.6" fill="url(#duster-tip)"/>
+      <circle cx="43" cy="4"  r="2.2" fill="url(#duster-tip)"/>
+      <circle cx="51" cy="15" r="2.2" fill="url(#duster-tip)"/>
+      <rect x="25" y="32" width="14" height="6" rx="3" fill="url(#duster-tip)"/>
+      <rect x="29" y="37" width="6" height="22" rx="3" fill="url(#duster-handle)"/>
+      <circle cx="32" cy="60" r="2.4" fill="#7c3aed"/>
+    </g>
+  </g>
+
+  <!-- Wordmark + tagline + footer -->
+  <g font-family="'Space Grotesk', system-ui, -apple-system, sans-serif">
+    <text x="430" y="270" font-size="110" font-weight="700" letter-spacing="20" fill="#F4F6FB">
+      DUSTER
+    </text>
+    <text x="430" y="350" font-size="36" font-weight="500" fill="#A6ADBE">
+      Find the hidden money in
+      <tspan fill="url(#found)" font-weight="700">your wallet.</tspan>
+    </text>
+    <text x="430" y="410" font-size="22" font-weight="500" fill="#5A6175" letter-spacing="2">
+      SOLANA · DUST CLEANER · ONE SIGNATURE
+    </text>
+  </g>
+
+  <!-- Footer URL -->
+  <text x="80" y="565" font-family="'JetBrains Mono', ui-monospace, monospace" font-size="20" fill="#5A6175" letter-spacing="3">
+    DUSTER.GURU
+  </text>
+
+  <!-- Decorative dust motes (top-right corner) -->
+  <g opacity="0.6">
+    <circle cx="1100" cy="80" r="3" fill="#47bfff"/>
+    <circle cx="1130" cy="120" r="2" fill="#a855f7"/>
+    <circle cx="1080" cy="140" r="2.5" fill="#7CFFB2"/>
+    <circle cx="1145" cy="60" r="1.5" fill="#FFE08A"/>
+  </g>
+</svg>

@@ -2,19 +2,106 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no" />
-    <meta name="theme-color" content="#863bff" />
+
+    <!-- Primary identity -->
+    <title>Duster — Solana wallet dust cleaner · Reclaim hidden value in one signature</title>
+    <meta name="description" content="Duster scans your Solana wallet for dust tokens, swaps them to USDC or SOL via Jupiter, and closes empty token accounts to reclaim rent — all in one signature. Free, non-custodial, mobile-first." />
+    <meta name="keywords" content="solana dust cleaner, solana wallet cleaner, dust tokens, reclaim rent, sweep dust, swap small balances, jupiter aggregator, solana spl tokens, close token accounts, micro balance swap, web3 wallet cleanup" />
+    <meta name="author" content="Duster" />
+    <link rel="canonical" href="https://duster.guru/" />
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+
+    <!-- Theme + mobile chrome -->
+    <meta name="theme-color" content="#a855f7" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Duster" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="format-detection" content="telephone=no" />
+
+    <!-- Icons -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/favicon.svg" />
+    <link rel="mask-icon" href="/favicon.svg" color="#a855f7" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+
+    <!-- Open Graph (Facebook, LinkedIn, Discord, Slack, Telegram) -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Duster" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:url" content="https://duster.guru/" />
+    <meta property="og:title" content="Duster — Solana wallet dust cleaner" />
+    <meta property="og:description" content="Find the hidden money in your wallet. Swap dust tokens to USDC or SOL, reclaim rent, one signature." />
+    <meta property="og:image" content="https://duster.guru/og-image.png" />
+    <meta property="og:image:secure_url" content="https://duster.guru/og-image.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Duster — feather-duster icon over the tagline Find the hidden money in your wallet" />
+
+    <!-- Twitter / X Cards -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Duster — Solana wallet dust cleaner" />
+    <meta name="twitter:description" content="Find the hidden money in your wallet. Swap dust tokens to USDC or SOL, reclaim rent, one signature." />
+    <meta name="twitter:image" content="https://duster.guru/og-image.png" />
+    <meta name="twitter:image:alt" content="Duster — feather-duster icon over the tagline Find the hidden money in your wallet" />
+
+    <!-- Connection hints (font CDN already used) -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="dns-prefetch" href="https://lite-api.jup.ag" />
+    <link rel="dns-prefetch" href="https://api.mainnet-beta.solana.com" />
+
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" />
-    <title>Duster — Find the hidden money in your wallet</title>
-    <meta name="description" content="Duster cleans dust tokens out of your Solana wallet — swap micro-balances to USDC or SOL, reclaim rent, all in one signature." />
-    <meta property="og:title" content="Duster — Find the hidden money in your wallet" />
-    <meta property="og:description" content="Solana wallet dust cleaner. Swap micro-balances to USDC or SOL, reclaim rent, one signature." />
-    <meta property="og:url" content="https://duster.guru" />
+
+    <!-- Structured data — describes the app for Google's knowledge graph
+         and lets it surface rich results (price, rating, features) when
+         the brand starts ranking. -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "Duster",
+      "alternateName": "Duster — Solana wallet dust cleaner",
+      "url": "https://duster.guru/",
+      "description": "Duster scans your Solana wallet for dust tokens, swaps them to USDC or SOL via Jupiter, and closes empty token accounts to reclaim rent — all in one signature.",
+      "applicationCategory": "FinanceApplication",
+      "applicationSubCategory": "Cryptocurrency Wallet Utility",
+      "operatingSystem": "Web, iOS, Android",
+      "browserRequirements": "Requires JavaScript and a Solana wallet such as Phantom, Solflare, or Backpack.",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      },
+      "featureList": [
+        "Scan Solana wallet for dust tokens (under $5)",
+        "Swap dust to USDC or native SOL via Jupiter aggregator",
+        "Reclaim SOL rent from closing empty SPL token accounts",
+        "One wallet signature per sweep",
+        "Non-custodial — wallet stays in user control",
+        "Mobile-first responsive design"
+      ],
+      "creator": {
+        "@type": "Organization",
+        "name": "Duster"
+      }
+    }
+    </script>
   </head>
   <body>
+    <!-- Crawlers / no-JS fallback. SPA content is JS-rendered, so we leave
+         a one-paragraph SEO-relevant fallback for bots without a JS
+         rendering pipeline (and for users with JS disabled). -->
+    <noscript>
+      <div style="max-width:640px;margin:80px auto;padding:24px;font-family:system-ui,sans-serif;color:#F4F6FB;background:#0E1119;">
+        <h1>Duster — Solana wallet dust cleaner</h1>
+        <p>Duster scans your Solana wallet for dust tokens, swaps them to USDC or SOL via the Jupiter aggregator, and closes empty SPL token accounts to reclaim rent — all in one wallet signature.</p>
+        <p>This app needs JavaScript and a Solana wallet (Phantom, Solflare, or Backpack) to run. Please enable JavaScript and reload.</p>
+      </div>
+    </noscript>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>

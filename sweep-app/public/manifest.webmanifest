@@ -1,0 +1,21 @@
+{
+  "name": "Duster — Solana wallet dust cleaner",
+  "short_name": "Duster",
+  "description": "Find the hidden money in your Solana wallet. Swap dust tokens to USDC or SOL, reclaim rent, one signature.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#06070D",
+  "theme_color": "#a855f7",
+  "categories": ["finance", "utilities"],
+  "lang": "en",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
