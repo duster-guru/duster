@@ -25,15 +25,18 @@ export function PrimaryButton({ children, onClick, glow = "mint", className = ""
   );
 }
 
-export function GlassButton({ children, onClick, className = "", icon = null }) {
+export function GlassButton({ children, onClick, className = "", icon = null, disabled = false }) {
   return (
     <motion.button
-      whileTap={press}
+      whileTap={disabled ? undefined : press}
       onClick={(e) => {
+        if (disabled) return;
         haptic.light?.();
         onClick?.(e);
       }}
-      className={`relative w-full h-14 rounded-full glass text-text-primary font-display font-semibold text-[16px] flex items-center justify-center gap-2 ${className}`}
+      disabled={disabled}
+      aria-disabled={disabled}
+      className={`relative w-full h-14 rounded-full glass text-text-primary font-display font-semibold text-[16px] flex items-center justify-center gap-2 ${disabled ? "opacity-60 cursor-not-allowed" : ""} ${className}`}
     >
       <span className="flex items-center gap-2">{children}{icon}</span>
     </motion.button>

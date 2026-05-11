@@ -1,7 +1,8 @@
 import { useWallet } from "@solana/wallet-adapter-react";
 import { motion } from "framer-motion";
 import { Check, Copy, Download } from "lucide-react";
-import { useMemo, useState } from "react";
+import { toPng } from "html-to-image";
+import { useMemo, useRef, useState } from "react";
 import HomeNav from "../components/HomeNav";
 import { BackButton, GlassButton, MicroLabel } from "../components/UI";
 import { ALL_GROUP_IDS, GROUPS, summarizeGroups } from "../lib/solana/groups";
@@ -53,6 +54,51 @@ export default function Share({ go, scan, exec, filteredDust, outputAsset }) {
     ? `${publicKey.toBase58().slice(0, 4)}…${publicKey.toBase58().slice(-4)}`
     : "";
 
+  // Ref + state for the image-save action. We capture the share-card
+  // DOM node with html-to-image (toPng), then either trigger a regular
+  // download OR — on mobile / iOS where filesystem downloads of PNGs
+  // get hidden — fall back to opening the PNG in a new tab so the user
+  // can long-press → "Save to Photos".
+  const cardRef = useRef(null);
+  const [saving, setSaving] = useState(false);
+  const [savedOk, setSavedOk] = useState(false);
+
+  const onSaveImage = async () => {
+    if (!cardRef.current || saving) return;
+    haptic.medium?.();
+    setSaving(true);
+    try {
+      const dataUrl = await toPng(cardRef.current, {
+        cacheBust: true,
+        pixelRatio: 2,
+        // Render exactly what's on screen; skip the inherited bg of the
+        // app shell, which would otherwise bleed into PNG transparency.
+        backgroundColor: undefined,
+      });
+      const isIOS =
+        /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+        (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+      if (isIOS) {
+        // iOS Safari ignores <a download>. Open the data URL in a new
+        // tab; the user long-presses to save to Photos.
+        window.open(dataUrl, "_blank", "noopener,noreferrer");
+      } else {
+        const a = document.createElement("a");
+        a.href = dataUrl;
+        a.download = `duster-${Date.now()}.png`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      }
+      setSavedOk(true);
+      setTimeout(() => setSavedOk(false), 1600);
+    } catch (e) {
+      console.warn("[share] image export failed:", e);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const onCopy = async () => {
     haptic.medium?.();
     try {
@@ -88,6 +134,7 @@ export default function Share({ go, scan, exec, filteredDust, outputAsset }) {
 
         <motion.div
           key={style.id}
+          ref={cardRef}
           initial={{ opacity: 0, scale: 0.96 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.45, ease }}
@@ -249,9 +296,9 @@ export default function Share({ go, scan, exec, filteredDust, outputAsset }) {
         </div>
 
         <div className="mt-2.5">
-          <GlassButton onClick={() => { haptic.light?.(); }}>
-            <Download size={16} />
-            Save Image
+          <GlassButton onClick={onSaveImage} disabled={saving}>
+            {savedOk ? <Check size={16} className="text-sweep" /> : <Download size={16} />}
+            {saving ? "Saving…" : savedOk ? "Saved" : "Save Image"}
           </GlassButton>
         </div>
 

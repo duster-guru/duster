@@ -311,7 +311,7 @@ export default function Dashboard({ go, scan }) {
             hapticType="medium"
             onClick={() => go(SCREENS.SCAN)}
           >
-            {records.length > 0 ? "Scan again" : "Scan wallet"}
+            {records.length > 0 ? "Find more hidden money" : "Find hidden money"}
           </PrimaryButton>
         </motion.div>
       </div>
