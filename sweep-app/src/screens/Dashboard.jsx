@@ -1,12 +1,12 @@
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { motion } from "framer-motion";
-import { ArrowRight, Copy, ExternalLink, LogOut } from "lucide-react";
+import { ArrowRight, Copy, ExternalLink, LogOut, Sparkles } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import Particles from "../components/Particles";
 import CountUp from "../components/CountUp";
+import PortfolioChart from "../components/PortfolioChart";
 import { Card, GlassCard, MicroLabel, PrimaryButton } from "../components/UI";
-import { USDC_MINT } from "../lib/config";
-import { fetchSolBalance, fetchUsdcBalance } from "../lib/solana/tokenAccounts";
+import { fetchSolBalance } from "../lib/solana/tokenAccounts";
 import { LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { loadHistory, summarize } from "../lib/history";
 import { SCREENS } from "../lib/screens";
@@ -30,10 +30,9 @@ function relativeTime(ts) {
   return new Date(ts).toLocaleDateString();
 }
 
-export default function Dashboard({ go }) {
+export default function Dashboard({ go, scan }) {
   const { connection } = useConnection();
   const { publicKey, disconnect, connected } = useWallet();
-  const [usdc, setUsdc] = useState(0);
   const [sol, setSol] = useState(0);
   const [copied, setCopied] = useState(false);
 
@@ -43,19 +42,16 @@ export default function Dashboard({ go }) {
   const records = useMemo(() => loadHistory(pubkeyStr), [pubkeyStr]);
   const stats = useMemo(() => summarize(records), [records]);
 
-  // Live balances for the connected wallet — fetched in parallel.
+  // Native SOL balance — fetched directly so it lands even before the
+  // scan finishes (USDC, other tokens, and portfolio totals come from
+  // scan.holdings via the dust hook).
   useEffect(() => {
     if (!connected || !publicKey) return;
     let cancelled = false;
     (async () => {
       try {
-        const [usdcBal, lamports] = await Promise.all([
-          fetchUsdcBalance(connection, publicKey, USDC_MINT),
-          fetchSolBalance(connection, publicKey),
-        ]);
-        if (cancelled) return;
-        setUsdc(usdcBal);
-        setSol(lamports / LAMPORTS_PER_SOL);
+        const lamports = await fetchSolBalance(connection, publicKey);
+        if (!cancelled) setSol(lamports / LAMPORTS_PER_SOL);
       } catch { /* ignore */ }
     })();
     return () => { cancelled = true; };
@@ -106,6 +102,10 @@ export default function Dashboard({ go }) {
           </button>
         </motion.div>
 
+        {/* Wallet total balance + top-5 distribution chart. Derived from
+            the dust scan, which fetches the full priced portfolio. While
+            scan is still 'scanning' we show a skeleton so the dashboard
+            isn't half-blank on first connect. */}
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
@@ -113,22 +113,66 @@ export default function Dashboard({ go }) {
           className="mt-4"
         >
           <GlassCard padding="p-5">
-            <MicroLabel>Total cleaned</MicroLabel>
+            <div className="flex items-center justify-between">
+              <MicroLabel>Wallet total</MicroLabel>
+              <span className="text-[10px] text-text-muted font-mono uppercase tracking-wider">
+                {(scan.holdings?.length ?? 0)} asset{(scan.holdings?.length ?? 0) === 1 ? "" : "s"}
+              </span>
+            </div>
             <div className="mt-1 font-display font-bold text-[42px] text-gradient-found leading-none tabular-nums">
-              <CountUp to={stats.totalCleaned} duration={900} prefix="$" decimals={2} />
+              {scan.status === "scanning" && !(scan.portfolioUsd > 0) ? (
+                <span className="text-text-muted text-[18px] font-mono">loading…</span>
+              ) : (
+                <CountUp to={scan.portfolioUsd ?? 0} duration={900} prefix="$" decimals={2} />
+              )}
             </div>
             <div className="mt-1 text-[11px] text-text-muted">
-              local history — tracked on this device only
+              live, priced via Jupiter — refreshes every 30s
             </div>
-            <div className="mt-3 flex items-center justify-between text-[12px] text-text-muted">
-              <span className="font-mono tabular-nums">
-                {stats.sweeps} sweep{stats.sweeps === 1 ? "" : "s"} · {stats.signatures} signature{stats.signatures === 1 ? "" : "s"}
-              </span>
-              <span className="font-mono tabular-nums">{stats.tokens} token{stats.tokens === 1 ? "" : "s"}</span>
-            </div>
+            {(scan.holdings?.length ?? 0) > 0 && (
+              <div className="mt-4">
+                <PortfolioChart
+                  holdings={scan.holdings}
+                  totalUsd={scan.portfolioUsd}
+                />
+              </div>
+            )}
           </GlassCard>
         </motion.div>
 
+        {/* Dustable amount callout — a row of actionable signal. Clicking
+            jumps straight into Scan (auto-runs since scan is already ready). */}
+        <motion.button
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.18, ease }}
+          onClick={() => { haptic.medium?.(); go(SCREENS.SCAN); }}
+          className="mt-3 w-full text-left rounded-md p-4 flex items-center gap-3"
+          style={{
+            background: "linear-gradient(135deg, rgba(255,210,122,0.10), rgba(124,255,178,0.06))",
+            border: "1px solid rgba(255,210,122,0.30)",
+          }}
+        >
+          <span className="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style={{ background: "rgba(255,210,122,0.18)" }}>
+            <Sparkles size={16} className="text-gold" />
+          </span>
+          <div className="flex-1 min-w-0">
+            <div className="text-[11px] uppercase tracking-[0.16em] font-bold text-gold">
+              Dustable now
+            </div>
+            <div className="mt-0.5 font-display font-bold text-[20px] text-text-primary leading-none tabular-nums">
+              ${(scan.dustableUsd ?? 0).toFixed(2)}
+              <span className="text-text-muted font-mono text-[11px] ml-2">
+                {scan.dust?.length ?? 0} token{(scan.dust?.length ?? 0) === 1 ? "" : "s"}
+              </span>
+            </div>
+          </div>
+          <ArrowRight size={16} className="text-gold shrink-0" />
+        </motion.button>
+
+        {/* Local history stats — separate from the live wallet number so
+            they can't be confused. "Total cleaned" is what THIS device has
+            captured via past sweeps, not your live balance. */}
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
@@ -136,16 +180,18 @@ export default function Dashboard({ go }) {
           className="mt-3 grid grid-cols-2 gap-3"
         >
           <Card className="p-4">
-            <MicroLabel>Live USDC</MicroLabel>
-            <div className="mt-2 font-display font-bold text-[24px] text-text-primary tabular-nums">
-              ${usdc.toFixed(2)}
+            <MicroLabel>Total cleaned</MicroLabel>
+            <div className="mt-2 font-display font-bold text-[22px] text-text-primary tabular-nums">
+              ${stats.totalCleaned.toFixed(2)}
             </div>
-            <div className="text-[11px] text-text-muted mt-0.5">in your wallet now</div>
+            <div className="text-[11px] text-text-muted mt-0.5 leading-snug">
+              {stats.sweeps} sweep{stats.sweeps === 1 ? "" : "s"} · this device
+            </div>
           </Card>
 
           <Card className="p-4">
             <MicroLabel>Live SOL</MicroLabel>
-            <div className="mt-2 font-display font-bold text-[24px] text-text-primary tabular-nums">
+            <div className="mt-2 font-display font-bold text-[22px] text-text-primary tabular-nums">
               {sol.toFixed(4)}
             </div>
             <div className="text-[11px] text-text-muted mt-0.5">native balance</div>

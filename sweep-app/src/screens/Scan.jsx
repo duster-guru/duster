@@ -1,5 +1,6 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
+import HomeNav from "../components/HomeNav";
 import Particles from "../components/Particles";
 import { ProgressBar } from "../components/UI";
 import { SCREENS } from "../lib/screens";
@@ -60,6 +61,7 @@ export default function Scan({ go, scan }) {
 
   return (
     <div className="relative w-full h-full">
+      <HomeNav go={go} />
       <Particles mode="inward" count={90} intensity={1.2} />
 
       <div className="relative z-10 h-full flex flex-col items-center pt-[16%] px-5 pb-10">

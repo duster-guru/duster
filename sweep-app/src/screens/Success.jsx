@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { ArrowRight, ExternalLink, PenLine, Sparkles } from "lucide-react";
 import { useEffect, useMemo, useRef } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
+import HomeNav from "../components/HomeNav";
 import Particles from "../components/Particles";
 import { HeroGlassCard, MicroLabel, PrimaryButton } from "../components/UI";
 import { ALL_GROUP_IDS, summarizeGroups } from "../lib/solana/groups";
@@ -127,6 +128,7 @@ export default function Success({ go, scan, exec, filteredDust, outputAsset }) {
 
   return (
     <div className="relative w-full h-full overflow-hidden">
+      <HomeNav go={go} />
       <Particles mode="ambient" count={50} color="#7CFFB2" />
 
       <div

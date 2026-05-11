@@ -2,6 +2,7 @@ import { useWallet } from "@solana/wallet-adapter-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowRight, Check, ChevronDown, ChevronUp, Info, PenLine, RefreshCw, Sparkles } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import HomeNav from "../components/HomeNav";
 import Particles from "../components/Particles";
 import CountUp from "../components/CountUp";
 import { GhostButton, HeroGlassCard, MicroLabel, PrimaryButton, TokenIcon } from "../components/UI";
@@ -177,6 +178,7 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups, o
 
   return (
     <div className="relative w-full h-full overflow-hidden">
+      <HomeNav go={go} />
       <Particles mode="burst" count={60} className="opacity-70" />
 
       <div className="relative z-10 h-full flex flex-col px-5 pt-10 pb-6 overflow-y-auto no-scrollbar">

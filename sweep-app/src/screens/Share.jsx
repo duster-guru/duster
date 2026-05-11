@@ -2,6 +2,7 @@ import { useWallet } from "@solana/wallet-adapter-react";
 import { motion } from "framer-motion";
 import { Check, Copy, Download } from "lucide-react";
 import { useMemo, useState } from "react";
+import HomeNav from "../components/HomeNav";
 import { BackButton, GlassButton, MicroLabel } from "../components/UI";
 import { ALL_GROUP_IDS, GROUPS, summarizeGroups } from "../lib/solana/groups";
 import { getOutputAsset } from "../lib/solana/outputs";
@@ -74,6 +75,7 @@ export default function Share({ go, scan, exec, filteredDust, outputAsset }) {
   return (
     <div className="relative w-full h-full">
       <BackButton onClick={() => go(SCREENS.SUCCESS)} />
+      <HomeNav go={go} />
       <div className="relative z-10 h-full flex flex-col pt-10 pb-6 px-5 overflow-y-auto no-scrollbar">
         <motion.h2
           initial={{ opacity: 0, y: 8 }}

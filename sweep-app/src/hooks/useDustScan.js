@@ -1,5 +1,6 @@
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { LAMPORTS_PER_SOL } from "@solana/web3.js";
 import {
   CLOSE_ONLY_THRESHOLD_USD,
   DUST_THRESHOLD_USD,
@@ -11,10 +12,16 @@ import {
 import { fetchPrices } from "../lib/solana/pricing";
 import { classifyGroup } from "../lib/solana/groups";
 import {
+  fetchSolBalance,
   fetchTokenAccounts,
   fetchUsdcBalance,
 } from "../lib/solana/tokenAccounts";
 import { fetchTokenInfos, tokenInfo } from "../lib/solana/tokenList";
+
+// How many of the priced token mints we ask Jupiter for full metadata on.
+// Top 30 holdings cover the portfolio chart (top-5 + other) AND the dust
+// list; beyond that, fallbacks (mint-derived symbol/colour) are fine.
+const PORTFOLIO_METADATA_LIMIT = 30;
 
 /**
  * Real dust scan hook.
@@ -47,6 +54,12 @@ export default function useDustScan() {
   const [outputIcons, setOutputIcons] = useState({});
   const [pricesRefreshing, setPricesRefreshing] = useState(false);
   const [lastPriceUpdateAt, setLastPriceUpdateAt] = useState(null);
+  // Full portfolio (NOT just dust): every priced holding the wallet
+  // owns, including native SOL as a synthetic entry. Sorted by USD value
+  // desc. Dashboard uses this for the total-balance card + top-5 chart.
+  const [holdings, setHoldings] = useState([]);
+  const [portfolioUsd, setPortfolioUsd] = useState(0);
+  const [dustableUsd, setDustableUsd] = useState(0);
   const [diag, setDiag] = useState({
     accountCount: 0,
     nonZeroCount: 0,
@@ -74,12 +87,14 @@ export default function useDustScan() {
 
     try {
       setProgress(10);
-      const [accounts, usdc] = await Promise.all([
+      const [accounts, usdc, solLamports] = await Promise.all([
         fetchTokenAccounts(connection, publicKey),
         fetchUsdcBalance(connection, publicKey, USDC_MINT),
+        fetchSolBalance(connection, publicKey),
       ]);
       if (cancelled.current) return;
       setUsdcBefore(usdc);
+      const solUi = solLamports / LAMPORTS_PER_SOL;
 
       const nonZero = accounts.filter((a) => a.uiAmount > 0);
       console.log("[scan] accounts:", accounts.length, "non-zero:", nonZero.length);
@@ -152,12 +167,21 @@ export default function useDustScan() {
         usdcSelf: usdc,
       });
 
-      // Metadata for the dust subset + output mints (so destination cards
-      // can render real logos instead of single-letter fallbacks).
+      // Metadata for the dust subset + the wallet's top priced holdings
+      // (so the dashboard chart can render real logos for the top-5
+      // portfolio slices) + output mints (destination picker icons).
+      // Bounded at PORTFOLIO_METADATA_LIMIT to keep the Jupiter token
+      // search payload reasonable on whale wallets.
       setMessage("Loading token metadata…");
       setProgress(80);
+      const topByValue = [...valued]
+        .filter((t) => t.valueUsd > 0)
+        .sort((a, b) => b.valueUsd - a.valueUsd)
+        .slice(0, PORTFOLIO_METADATA_LIMIT)
+        .map((t) => t.mint);
       const metadataMints = [
         ...sweepable.map((t) => t.mint),
+        ...topByValue,
         USDC_MINT.toBase58(),
         WSOL_MINT.toBase58(),
         SWEEP_MINT?.toBase58(),
@@ -199,6 +223,46 @@ export default function useDustScan() {
       });
 
       setDust(enriched);
+
+      // Full portfolio: every priced holding + a synthetic native-SOL row.
+      // Sorted desc by USD so the chart's top-5 selection is trivial.
+      const solPrice = priceMap.get(WSOL_MINT.toBase58()) ?? 0;
+      const tokenHoldings = valued
+        .filter((t) => t.valueUsd > 0)
+        .map((t) => {
+          const info = tokenInfo(tokenInfoMap, t.mint, t.decimals);
+          return {
+            mint: t.mint,
+            symbol: info.symbol,
+            name: info.name,
+            logoURI: info.logoURI,
+            uiAmount: t.uiAmount,
+            priceUsd: t.priceUsd,
+            valueUsd: t.valueUsd,
+            color: pickColor(t.mint),
+            isNative: false,
+          };
+        });
+      const portfolio = [
+        ...(solPrice > 0 && solUi > 0
+          ? [{
+              mint: WSOL_MINT.toBase58(),
+              symbol: "SOL",
+              name: "Solana",
+              logoURI: tokenInfoMap.get(WSOL_MINT.toBase58())?.icon || null,
+              uiAmount: solUi,
+              priceUsd: solPrice,
+              valueUsd: solUi * solPrice,
+              color: "#9945FF",
+              isNative: true,
+            }]
+          : []),
+        ...tokenHoldings,
+      ].sort((a, b) => b.valueUsd - a.valueUsd);
+      setHoldings(portfolio);
+      setPortfolioUsd(+portfolio.reduce((s, h) => s + h.valueUsd, 0).toFixed(2));
+      setDustableUsd(+sweepable.reduce((s, t) => s + (t.valueUsd || 0), 0).toFixed(2));
+
       setProgress(100);
       setStatus(enriched.length === 0 ? "empty" : "ready");
       setMessage(enriched.length === 0 ? "No sweepable dust" : "Dust ready to sweep");
@@ -284,6 +348,10 @@ export default function useDustScan() {
     outputIcons,
     pricesRefreshing,
     lastPriceUpdateAt,
+    // Full portfolio breakdown for the dashboard's total + chart cards.
+    holdings,
+    portfolioUsd,
+    dustableUsd,
     refresh: run,
     refreshPrices,
   };
