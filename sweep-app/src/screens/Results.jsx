@@ -36,6 +36,9 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups, o
     });
   };
   const [hintOpen, setHintOpen] = useState(false);
+  // Pre-signature confirmation modal. Opens when the user taps Clean,
+  // gives them a final readable summary of what 1 signature commits to.
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const hintRef = useRef(null);
   const hintTriggerRef = useRef(null);
 
@@ -158,16 +161,22 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups, o
             <p className="mt-3 text-[14px] text-text-secondary max-w-[300px] mx-auto leading-snug">
               {reason}
             </p>
-            <div className="mt-5 inline-grid grid-cols-2 gap-x-5 gap-y-1 text-[11px] font-mono text-text-muted">
-              <span className="text-left">accounts</span><span className="text-right tabular-nums">{d.accountCount ?? 0}</span>
-              <span className="text-left">non-zero</span><span className="text-right tabular-nums">{d.nonZeroCount ?? 0}</span>
-              <span className="text-left">priced</span><span className="text-right tabular-nums">{d.pricedCount ?? 0}</span>
-              <span className="text-left">{">$5"}</span><span className="text-right tabular-nums">{d.aboveThresholdCount ?? 0}</span>
+            {/* Human-readable summary instead of a 4-row diagnostic grid.
+                The previous "accounts: 5 · non-zero: 5 · priced: 0 · >$5: 0"
+                table told the user nothing actionable. */}
+            <div className="mt-5 text-[11px] text-text-muted leading-snug max-w-[300px] mx-auto">
+              {d.nonZeroCount > 0 && (
+                <>
+                  {d.nonZeroCount} token{d.nonZeroCount === 1 ? "" : "s"} in this wallet
+                  {d.aboveThresholdCount > 0 && ` · ${d.aboveThresholdCount} above the $5 dust line`}
+                  {d.pricedCount < d.nonZeroCount && ` · ${d.nonZeroCount - d.pricedCount} unpriced (no Jupiter market)`}
+                </>
+              )}
             </div>
             <div className="mt-6 flex flex-col gap-2">
               <PrimaryButton onClick={() => { scan.refresh(); }}>Rescan</PrimaryButton>
-              <GhostButton onClick={async () => { await disconnect(); go(SCREENS.SPLASH); }}>
-                Disconnect
+              <GhostButton onClick={() => go(SCREENS.DASHBOARD)}>
+                Back to dashboard
               </GhostButton>
             </div>
           </motion.div>
@@ -787,7 +796,7 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups, o
             </div>
             <div className="flex items-center justify-between py-0.5">
               <span className="text-[12px] text-text-secondary">
-                Closing {totals.tokenCount} ATA{totals.tokenCount === 1 ? "" : "s"}
+                Closing {totals.tokenCount} token account{totals.tokenCount === 1 ? "" : "s"}
               </span>
               <span className="font-mono text-[12px] text-gold tabular-nums">
                 +{rentReclaimSol.toFixed(4)} SOL
@@ -849,7 +858,7 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups, o
           className="mt-4 flex flex-col gap-2.5"
         >
           <PrimaryButton
-            onClick={() => go(SCREENS.CLEANING)}
+            onClick={() => { haptic.medium?.(); setConfirmOpen(true); }}
             glow={asset.id === "sweep" ? "magenta" : "mint"}
             icon={asset.id === "sweep" ? <Sparkles size={18} /> : <PenLine size={18} strokeWidth={2.5} />}
             hapticType="medium"
@@ -871,6 +880,102 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups, o
           </div>
         </motion.div>
       </div>
+
+      {/* Pre-signature confirmation overlay. Final readable summary of
+          everything the user is about to commit to with 1 wallet signature.
+          Closes on backdrop tap or Cancel; "Confirm & sign" advances to
+          Cleaning, which is what the primary CTA used to do directly. */}
+      <AnimatePresence>
+        {confirmOpen && (
+          <motion.div
+            key="confirm-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="absolute inset-0 z-40 flex items-end sm:items-center justify-center"
+            style={{ background: "rgba(6,7,13,0.78)", backdropFilter: "blur(8px)" }}
+            onClick={() => setConfirmOpen(false)}
+          >
+            <motion.div
+              initial={{ y: 24, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 24, opacity: 0 }}
+              transition={{ duration: 0.25, ease }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-[400px] mx-3 mb-3 sm:mb-0 rounded-md p-5"
+              style={{
+                background: "#0E1119",
+                border: "1px solid rgba(255,255,255,0.10)",
+                boxShadow: "0 24px 60px rgba(0,0,0,0.6)",
+              }}
+            >
+              <div className="flex items-center justify-between">
+                <div className="text-[11px] uppercase tracking-[0.16em] font-bold text-sweep">
+                  Confirm sweep
+                </div>
+                <span className="font-mono text-[10px] text-text-muted">1 signature</span>
+              </div>
+              <div className="mt-2 text-[14px] text-text-secondary leading-snug">
+                You're about to clean <span className="text-text-primary font-semibold">{totals.tokenCount} token{totals.tokenCount === 1 ? "" : "s"}</span> worth{" "}
+                <span className="text-text-primary font-semibold">~${totals.total.toFixed(2)}</span> into{" "}
+                <span className="text-text-primary font-semibold">{asset.symbol}</span>.
+              </div>
+
+              <ul className="mt-3 flex flex-col gap-1.5 text-[12px]">
+                <li className="flex items-center justify-between text-text-secondary">
+                  <span>You'll receive</span>
+                  <span className="font-mono tabular-nums font-semibold" style={{ color: asset.color }}>
+                    {outputIsSol
+                      ? `~${formatTokenAmount(totalSolReceived, asset, livePrices)} SOL`
+                      : `~${formatTokenAmount(swapOutputAsset, asset, livePrices)} ${asset.symbol}`}
+                  </span>
+                </li>
+                {!outputIsSol && (
+                  <li className="flex items-center justify-between text-text-secondary">
+                    <span>Plus reclaimed rent</span>
+                    <span className="font-mono tabular-nums font-semibold text-gold">
+                      +{rentReclaimSol.toFixed(4)} SOL
+                    </span>
+                  </li>
+                )}
+                <li className="flex items-center justify-between text-text-secondary">
+                  <span>Platform fee</span>
+                  <span className="font-mono tabular-nums">
+                    {(asset.feeBps / 100).toFixed(0)}% · ${platformFeeUsd.toFixed(2)}
+                  </span>
+                </li>
+                <li className="flex items-center justify-between text-text-muted">
+                  <span>Network fee (est.)</span>
+                  <span className="font-mono tabular-nums">~${networkFeeUsd.toFixed(2)}</span>
+                </li>
+                <li className="flex items-center justify-between text-text-muted">
+                  <span>Transactions</span>
+                  <span className="font-mono tabular-nums">
+                    {totals.groupCount} versioned tx · 1 wallet prompt
+                  </span>
+                </li>
+              </ul>
+
+              <div className="mt-4 flex flex-col gap-2">
+                <PrimaryButton
+                  glow={asset.id === "sweep" ? "magenta" : "mint"}
+                  hapticType="medium"
+                  onClick={() => { setConfirmOpen(false); go(SCREENS.CLEANING); }}
+                >
+                  Confirm &amp; sign
+                </PrimaryButton>
+                <button
+                  onClick={() => setConfirmOpen(false)}
+                  className="h-10 rounded-full text-[13px] text-text-secondary font-display font-semibold"
+                >
+                  Cancel
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

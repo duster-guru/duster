@@ -18,8 +18,11 @@ export default {
           glow: "rgba(124,255,178,0.40)",
         },
         electric: "#5B8CFF",
-        magenta: "#FF4FD8",
-        gold: "#FFD27A",
+        // Brand accents — bumped from #FF4FD8/#FFD27A so 11–14px text on
+        // dark backgrounds clears WCAG AA (~4.5:1). Hue preserved, only
+        // luminance raised, so brand identity stays put.
+        magenta: "#FF6EE0",
+        gold: "#FFE08A",
         success: "#34E1A2",
         warn: "#FFB257",
         danger: "#FF6B7A",

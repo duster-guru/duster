@@ -314,7 +314,7 @@ export default function Cleaning({ go, scan, exec, filteredDust, selectedGroups,
               {phase === "sending"    && "Routing through Jupiter…"}
               {phase === "confirming" && "Confirming on-chain…"}
               {phase === "success"    && "Done."}
-              {phase === "error"      && "Sweep failed"}
+              {phase === "error"      && "Clean failed"}
             </motion.span>
           </AnimatePresence>
         </div>
@@ -330,6 +330,20 @@ export default function Cleaning({ go, scan, exec, filteredDust, selectedGroups,
           </span>
           <span>{!isError && `${Math.round(exec.progress)}%`}</span>
         </div>
+        {/* Cancel hatch — only available BEFORE the wallet signature.
+            Once we're past `building` the tx is either in the wallet's
+            hands (signing) or already on the network (sending /
+            confirming), and a client-side "cancel" is a lie. */}
+        {phase === "building" && (
+          <div className="mt-3 flex justify-center">
+            <button
+              onClick={() => { exec.reset(); go(SCREENS.RESULTS); }}
+              className="text-[12px] text-text-muted underline underline-offset-2 py-2 px-3"
+            >
+              Cancel
+            </button>
+          </div>
+        )}
       </div>
 
       <AnimatePresence>
@@ -344,7 +358,7 @@ export default function Cleaning({ go, scan, exec, filteredDust, selectedGroups,
               <AlertCircle size={16} className="text-danger shrink-0 mt-0.5" />
               <div className="flex-1 min-w-0">
                 <div className="text-[13px] font-display font-semibold text-text-primary">
-                  Couldn't complete the sweep
+                  Couldn't complete the clean
                 </div>
                 <div className="text-[12px] text-text-secondary mt-1 leading-snug break-words">
                   {exec.error?.message || "Unknown error"}

@@ -215,7 +215,7 @@ export default function Success({ go, scan, exec, filteredDust, outputAsset }) {
                   Rent reclaimed → SOL
                 </span>
                 <span className="font-mono text-[10px] text-text-muted tabular-nums">
-                  {closedAtaCount} ATA{closedAtaCount === 1 ? "" : "s"} closed
+                  {closedAtaCount} token account{closedAtaCount === 1 ? "" : "s"} closed
                 </span>
               </div>
               <div className="flex items-baseline justify-center gap-1.5">

@@ -35,14 +35,15 @@ export default function Scan({ go, scan }) {
       const merged = Math.max(displayProgress, Math.min(scan.progress || 0, minRamp));
       setDisplayProgress(merged);
 
-      const ready = scan.status === "ready" || scan.status === "empty" || scan.status === "error";
+      // Errors stay on this screen so the user keeps their wallet
+      // connection AND can hit Retry without re-signing the wallet pairing.
+      // Bouncing to Splash on error (the old behaviour) was throwing away
+      // a live connection over a transient RPC blip.
+      const ready = scan.status === "ready" || scan.status === "empty";
       if (elapsed >= MIN_SHOW_MS && ready && !advanced.current) {
         advanced.current = true;
         // tiny delay for the bar to visually fill
-        setTimeout(() => {
-          if (scan.status === "error") go(SCREENS.SPLASH);
-          else go(SCREENS.RESULTS);
-        }, 220);
+        setTimeout(() => { go(SCREENS.RESULTS); }, 220);
         return;
       }
       raf = requestAnimationFrame(tick);
@@ -122,10 +123,45 @@ export default function Scan({ go, scan }) {
 
         <div className="flex-1" />
 
-        {scan.error && (
-          <div className="text-[12px] text-danger text-center px-4 pb-2 max-w-[280px]">
-            {scan.error.message}
-          </div>
+        {/* Error recovery UI — replaces the old silent SPLASH bounce.
+            User keeps their wallet connection and can retry the scan
+            in place, OR back out to the dashboard. */}
+        {scan.status === "error" && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, ease }}
+            className="w-full px-4 pb-2 flex flex-col items-center gap-3"
+          >
+            <div
+              className="w-full max-w-[320px] px-4 py-3 rounded-md text-center"
+              style={{
+                background: "rgba(255,107,122,0.08)",
+                border: "1px solid rgba(255,107,122,0.30)",
+              }}
+            >
+              <div className="text-[12px] uppercase tracking-wider text-danger font-display font-bold">
+                Scan failed
+              </div>
+              <div className="text-[12px] text-text-secondary mt-1 leading-snug">
+                {scan.error?.message || "Couldn't read your wallet. Network blip, most likely."}
+              </div>
+            </div>
+            <div className="flex gap-2 w-full max-w-[320px]">
+              <button
+                onClick={() => { advanced.current = false; startedAt.current = performance.now(); scan.refresh(); }}
+                className="flex-1 h-10 rounded-full bg-sweep text-void text-[13px] font-display font-bold"
+              >
+                Try again
+              </button>
+              <button
+                onClick={() => go(SCREENS.DASHBOARD)}
+                className="flex-1 h-10 rounded-full glass text-text-secondary text-[13px] font-display font-bold"
+              >
+                Dashboard
+              </button>
+            </div>
+          </motion.div>
         )}
       </div>
     </div>

@@ -119,9 +119,13 @@ export default function Dashboard({ go, scan }) {
                 {(scan.holdings?.length ?? 0)} asset{(scan.holdings?.length ?? 0) === 1 ? "" : "s"}
               </span>
             </div>
-            <div className="mt-1 font-display font-bold text-[42px] text-gradient-found leading-none tabular-nums">
+            <div className="mt-1 h-[44px] flex items-center font-display font-bold text-[42px] text-gradient-found leading-none tabular-nums">
               {scan.status === "scanning" && !(scan.portfolioUsd > 0) ? (
-                <span className="text-text-muted text-[18px] font-mono">loading…</span>
+                <span
+                  className="inline-block h-[28px] w-[140px] rounded-md animate-pulse"
+                  style={{ background: "rgba(255,255,255,0.06)" }}
+                  aria-label="Loading wallet total"
+                />
               ) : (
                 <CountUp to={scan.portfolioUsd ?? 0} duration={900} prefix="$" decimals={2} />
               )}

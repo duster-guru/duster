@@ -56,7 +56,7 @@ export default function Share({ go, scan, exec, filteredDust, outputAsset }) {
   const onCopy = async () => {
     haptic.medium?.();
     try {
-      await navigator.clipboard.writeText("https://sweep.app/r/4F7K");
+      await navigator.clipboard.writeText("https://duster.guru");
     } catch {
       // clipboard unavailable; fail silently
     }
@@ -67,7 +67,7 @@ export default function Share({ go, scan, exec, filteredDust, outputAsset }) {
   const onPostX = () => {
     haptic.medium?.();
     const text = encodeURIComponent(
-      `Just unlocked ~$${totalUnlockedUsd.toFixed(2)} hidden in my Solana wallet — ${outputIsSol ? `${(swapOutputAsset + rentReclaimSol).toFixed(4)} SOL` : `${asset.symbol} + ${rentReclaimSol.toFixed(4)} SOL rent`}. one signature, no approvals. only on solana ✨ try yours: sweep.app/r/4F7K`
+      `Just unlocked ~$${totalUnlockedUsd.toFixed(2)} hidden in my Solana wallet — ${outputIsSol ? `${(swapOutputAsset + rentReclaimSol).toFixed(4)} SOL` : `${asset.symbol} + ${rentReclaimSol.toFixed(4)} SOL rent`}. one signature, no approvals. only on solana ✨ try yours: duster.guru`
     );
     window.open(`https://x.com/intent/post?text=${text}`, "_blank");
   };

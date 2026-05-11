@@ -18,9 +18,9 @@ export default function HomeNav({ go }) {
       onClick={() => { haptic.light?.(); go(SCREENS.DASHBOARD); }}
       aria-label="Open dashboard"
       title="Dashboard"
-      className="absolute top-4 right-4 z-30 w-9 h-9 rounded-full glass flex items-center justify-center text-text-secondary"
+      className="absolute top-3 right-3 z-30 w-11 h-11 rounded-full glass flex items-center justify-center text-text-secondary"
     >
-      <LayoutDashboard size={15} />
+      <LayoutDashboard size={17} />
     </button>
   );
 }

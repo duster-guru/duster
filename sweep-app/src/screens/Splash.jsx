@@ -44,7 +44,7 @@ export default function Splash({ go }) {
             >
               <img
                 src="/favicon.svg"
-                alt="SWEEP"
+                alt="Duster logo"
                 className="w-[56px] h-[56px]"
                 style={{ filter: "drop-shadow(0 0 12px rgba(134,59,255,0.55))" }}
               />
