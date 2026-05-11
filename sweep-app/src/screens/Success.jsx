@@ -1,7 +1,7 @@
 import confetti from "canvas-confetti";
 import { motion } from "framer-motion";
 import { ArrowRight, ExternalLink, PenLine, Sparkles } from "lucide-react";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import HomeNav from "../components/HomeNav";
 import Particles from "../components/Particles";
@@ -9,7 +9,7 @@ import { HeroGlassCard, MicroLabel, PrimaryButton } from "../components/UI";
 import { ALL_GROUP_IDS, summarizeGroups } from "../lib/solana/groups";
 import { formatTokenAmount, getEffectivePrice, getOutputAsset } from "../lib/solana/outputs";
 import { RENT_PER_ACCOUNT_SOL } from "../lib/config";
-import { addRecord } from "../lib/history";
+import { addRecord, loadHistory } from "../lib/history";
 import { SCREENS } from "../lib/screens";
 import { haptic } from "../lib/haptics";
 
@@ -76,7 +76,13 @@ export default function Success({ go, scan, exec, filteredDust, outputAsset }) {
   // if this effect fires twice (StrictMode) we won't double-write — but
   // we also gate it with a ref so we don't recompute the record body on
   // every render.
+  //
+  // sweepNumber: 1-indexed position of THIS sweep in the user's history.
+  // Updated after addRecord lands so the milestone label below reads
+  // "Your 1st sweep" / "10 sweeps done!" / etc. accurately.
   const persisted = useRef(false);
+  const [sweepNumber, setSweepNumber] = useState(0);
+  const [cumulativeUsd, setCumulativeUsd] = useState(0);
   useEffect(() => {
     if (persisted.current) return;
     if (!publicKey) return;
@@ -100,6 +106,11 @@ export default function Success({ go, scan, exec, filteredDust, outputAsset }) {
         logoURI: t.logoURI || null,
       })),
     });
+    // After persistence: read the full history back so we can show the
+    // user how many sweeps this is and their cumulative value cleaned.
+    const all = loadHistory(publicKey.toBase58());
+    setSweepNumber(all.length);
+    setCumulativeUsd(all.reduce((s, r) => s + (r.totalUnlockedUsd || 0), 0));
   }, [
     publicKey,
     exec.signatures,
@@ -115,6 +126,32 @@ export default function Success({ go, scan, exec, filteredDust, outputAsset }) {
   ]);
 
   const gridCols = groupCount === 1 ? "grid-cols-1" : "grid-cols-2";
+
+  // Milestone copy — celebrates first sweep, then every 10th, then
+  // cumulative-USD round numbers ($10, $100, $1000). Cheap retention
+  // dopamine for returning users; silent for ordinary in-between sweeps.
+  const milestone =
+    sweepNumber === 1 ? "Your first clean ✨"
+    : sweepNumber === 10 ? "10 cleans done!"
+    : sweepNumber === 50 ? "50 cleans · power user 💪"
+    : sweepNumber === 100 ? "100 cleans · legend"
+    : cumulativeUsd >= 10 && cumulativeUsd - totalUnlockedUsd < 10 ? "$10 cleaned cumulative"
+    : cumulativeUsd >= 100 && cumulativeUsd - totalUnlockedUsd < 100 ? "$100 cleaned cumulative"
+    : cumulativeUsd >= 1000 && cumulativeUsd - totalUnlockedUsd < 1000 ? "$1,000 cleaned cumulative"
+    : null;
+
+  // Narrative caption — makes the value tangible to non-crypto-native
+  // users. "3 dead tokens cleaned. $0.58 of locked rent unlocked."
+  const narrative = (() => {
+    const parts = [];
+    if (closedAtaCount > 0) {
+      parts.push(`${closedAtaCount} dead token${closedAtaCount === 1 ? "" : "s"} cleaned.`);
+    }
+    if (rentReclaimUsd > 0) {
+      parts.push(`$${rentReclaimUsd.toFixed(2)} of locked rent unlocked.`);
+    }
+    return parts.join(" ");
+  })();
 
   // Per-group share of the SWAP OUTPUT only (USD), proportional to dust
   // value swept. Rent reclaim is shown separately, never split per group.
@@ -150,12 +187,33 @@ export default function Success({ go, scan, exec, filteredDust, outputAsset }) {
           <h1 className="font-display text-[34px] font-bold text-text-primary leading-tight">
             Wallet Cleaned
           </h1>
+          {milestone && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.4, delay: 0.3, ease }}
+              className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full"
+              style={{
+                background: "linear-gradient(135deg, rgba(255,224,138,0.18), rgba(124,255,178,0.10))",
+                border: "1px solid rgba(255,224,138,0.40)",
+              }}
+            >
+              <span className="text-[11px] font-display font-bold text-gold uppercase tracking-wider">
+                {milestone}
+              </span>
+            </motion.div>
+          )}
           <div className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full glass">
             <PenLine size={11} className="text-sweep" />
             <span className="text-[11px] text-text-secondary">
               <span className="font-mono tabular-nums text-text-primary font-semibold">{tokenCount}</span> tokens · {txCount} signed {txCount === 1 ? "tx" : "txs"}
             </span>
           </div>
+          {narrative && (
+            <p className="mt-3 text-[13px] text-text-secondary leading-snug max-w-[300px] mx-auto">
+              {narrative}
+            </p>
+          )}
         </motion.div>
 
         <motion.div

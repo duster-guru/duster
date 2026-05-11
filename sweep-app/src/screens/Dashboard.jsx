@@ -178,21 +178,27 @@ export default function Dashboard({ go, scan }) {
         {/* Local history stats — separate from the live wallet number so
             they can't be confused. "Total cleaned" is what THIS device has
             captured via past sweeps, not your live balance. */}
+        {/* "Total cleaned" is a vanity stat — only meaningful after the
+            user has at least one sweep. For first-time visitors it's just
+            a $0.00 placeholder that competes for attention with the live
+            wallet number. Hide until they have history. */}
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.2, ease }}
-          className="mt-3 grid grid-cols-2 gap-3"
+          className={`mt-3 grid gap-3 ${stats.sweeps > 0 ? "grid-cols-2" : "grid-cols-1"}`}
         >
-          <Card className="p-4">
-            <MicroLabel>Total cleaned</MicroLabel>
-            <div className="mt-2 font-display font-bold text-[22px] text-text-primary tabular-nums">
-              ${stats.totalCleaned.toFixed(2)}
-            </div>
-            <div className="text-[11px] text-text-muted mt-0.5 leading-snug">
-              {stats.sweeps} sweep{stats.sweeps === 1 ? "" : "s"} · this device
-            </div>
-          </Card>
+          {stats.sweeps > 0 && (
+            <Card className="p-4">
+              <MicroLabel>Total cleaned</MicroLabel>
+              <div className="mt-2 font-display font-bold text-[22px] text-text-primary tabular-nums">
+                ${stats.totalCleaned.toFixed(2)}
+              </div>
+              <div className="text-[11px] text-text-muted mt-0.5 leading-snug">
+                {stats.sweeps} sweep{stats.sweeps === 1 ? "" : "s"} · this device
+              </div>
+            </Card>
+          )}
 
           <Card className="p-4">
             <MicroLabel>Live SOL</MicroLabel>
@@ -304,19 +310,32 @@ export default function Dashboard({ go, scan }) {
 
         <div className="flex-1 min-h-3" />
 
+        {/* Primary CTA — visible to first-time visitors and casual users.
+            For power users (3+ sweeps) the gold "Dustable now" callout up
+            top is the same action; the bottom button demotes to a text
+            link so we don't double-shout. */}
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.4, ease }}
           className="mt-4"
         >
-          <PrimaryButton
-            icon={<ArrowRight size={20} strokeWidth={2.5} />}
-            hapticType="medium"
-            onClick={() => go(SCREENS.SCAN)}
-          >
-            {records.length > 0 ? "Find more hidden money" : "Find hidden money"}
-          </PrimaryButton>
+          {records.length < 3 ? (
+            <PrimaryButton
+              icon={<ArrowRight size={20} strokeWidth={2.5} />}
+              hapticType="medium"
+              onClick={() => go(SCREENS.SCAN)}
+            >
+              {records.length > 0 ? "Find more hidden money" : "Find hidden money"}
+            </PrimaryButton>
+          ) : (
+            <button
+              onClick={() => { haptic.light?.(); go(SCREENS.SCAN); }}
+              className="w-full h-10 text-center text-[13px] text-text-secondary font-display font-semibold"
+            >
+              Find more hidden money →
+            </button>
+          )}
         </motion.div>
       </div>
     </div>

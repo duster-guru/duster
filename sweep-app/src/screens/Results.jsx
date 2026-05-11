@@ -526,7 +526,10 @@ export default function Results({ go, scan, selectedGroups, setSelectedGroups, o
                     className="text-[10px] font-mono tabular-nums leading-none"
                     style={{ color: isSelected ? a.color : "#5A6175" }}
                   >
-                    {(a.feeBps / 100).toFixed(0)}% fee
+                    {/* Additive framing ("you keep 95%") instead of
+                        subtractive ("5% fee") — same number, but lands
+                        as a benefit instead of a cost. */}
+                    keep {(100 - a.feeBps / 100).toFixed(0)}%
                   </div>
                   {/* Price line — render on EVERY card in advanced mode so
                       heights stay equal regardless of which is selected.

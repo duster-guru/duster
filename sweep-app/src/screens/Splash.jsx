@@ -86,6 +86,18 @@ export default function Splash({ go }) {
             <Lock size={12} className="text-sweep" />
             <span>No signing. Read-only access.</span>
           </div>
+          {/* Static trust strip — first-time visitors need a "this is a real
+              thing on a real network" anchor before they hit Connect. */}
+          <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.16em] text-text-muted font-mono">
+            <span className="inline-flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-success" style={{ boxShadow: "0 0 6px #34E1A2" }} />
+              Solana mainnet
+            </span>
+            <span className="opacity-40">·</span>
+            <span>Non-custodial</span>
+            <span className="opacity-40">·</span>
+            <span>Beta</span>
+          </div>
           <VersionBadge className="mt-1" />
         </motion.div>
       </div>
