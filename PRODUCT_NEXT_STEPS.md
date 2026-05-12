@@ -43,6 +43,33 @@ The backend has been built and stashed at `git stash@{0}: backend: nestjs proxy 
 - [ ] **Publish a one-page "How it works" page** at `duster.guru/how-it-works`. Lists every on-chain instruction Duster signs (swap, transfer, close), why each is needed, and what's NOT signed (token approvals, account upgrades, etc.).
 - [ ] **Open-source the frontend.** Most reputable Solana utilities have public repos. Builds trust with the crypto-native subset of users.
 
+## 🔎 SEO follow-ups (after homepage starts ranking)
+
+- [ ] **Set up Google Search Console** (free, 5 min, single-highest-leverage SEO tool).
+  1. Sign in at https://search.google.com/search-console and click **Add property**.
+  2. Pick **URL prefix**, enter `https://duster.guru/`.
+  3. Verify ownership — easiest paths:
+     - **DNS TXT record** if duster.guru is on Cloudflare: copy the verification value, add it as a TXT record at the root, click Verify. Best long-term — survives every deploy.
+     - **HTML meta tag**: GSC gives you a `<meta name="google-site-verification" content="…" />` snippet. The slot is pre-wired in `sweep-app/index.html` (search for `REPLACE_WITH_TOKEN`); uncomment, paste, redeploy, click Verify.
+  4. Once verified: **Sitemaps → Add a new sitemap → `sitemap.xml`**. Click Submit. This is what makes Google crawl the new site fast (otherwise ~2-3 weeks to surface).
+  5. Wait 3-7 days for the "Performance" report to populate with query data. The first time it shows queries you're already ranking for is when you know SEO is working.
+
+- [ ] **Submit the FAQ + HowTo schemas for validation** at https://search.google.com/test/rich-results — paste `https://duster.guru/`. Confirm all four show as "eligible": WebApplication, Organization, HowTo, FAQPage. Schema changes take 1-4 weeks to actually appear in SERPs.
+
+- [ ] **Run a Lighthouse / PageSpeed audit** at https://pagespeed.web.dev/?url=duster.guru after the next deploy. Target: 90+ on Performance, 100 on SEO, 100 on Accessibility, 90+ on Best Practices. CF Web Analytics already shows you're passing Core Web Vitals (LCP P50 1.376s) but Lighthouse gives the granular pass/fail per metric.
+
+- [ ] **Image alt-text audit** with axe-core (browser extension or `npm i -D @axe-core/cli && npx axe https://duster.guru`). Catches any decorative image that's missing `aria-hidden="true"` or any content image that's missing meaningful `alt=""`. Tiny win for accessibility + SEO.
+
+- [ ] **Start a blog at `/blog/*`** once homepage ranks. Best initial posts for SEO (each one targets a long-tail query Duster's audience already searches):
+  - `/blog/what-is-solana-dust` — "what is dust on solana" / "solana dust meaning"
+  - `/blog/how-to-reclaim-solana-rent` — "reclaim solana rent" / "close empty token account"
+  - `/blog/sol-incinerator-vs-duster` — competitor comparison ranks fast
+  - `/blog/why-your-solana-wallet-has-100-tokens` — addresses the underlying problem
+  - `/blog/jupiter-aggregator-explained` — broad-reach educational content
+  Each post = a new URL Google can index. After 5–10 posts the long-tail traffic dwarfs homepage traffic.
+
+- [ ] **Backlink campaign** — already tracked under **Distribution** above (dapp directories, awesome-solana, etc.). Each accepted listing = one high-authority backlink that compounds rankings.
+
 ## 📊 Analytics & feedback (after first real users)
 
 - [ ] **Get a Cloudflare Web Analytics token (FREE, 5 minutes).** Code is already wired up via `VITE_CF_ANALYTICS_TOKEN`; the beacon only loads when the env var is set, so the repo stays clean.
