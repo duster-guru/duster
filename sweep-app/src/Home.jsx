@@ -517,7 +517,7 @@ export default function Home() {
         <footer className="mt-16 pt-6 border-t border-white/5 flex items-center justify-between text-[11px] text-text-muted font-mono uppercase tracking-wider">
           <span>duster.guru</span>
           <a
-            href="https://github.com/zozzozm/sweeper"
+            href="https://github.com/duster-guru/duster"
             target="_blank"
             rel="noreferrer"
             className="hover:text-text-primary"
