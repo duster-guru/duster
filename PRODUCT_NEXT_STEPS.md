@@ -45,7 +45,13 @@ The backend has been built and stashed at `git stash@{0}: backend: nestjs proxy 
 
 ## 📊 Analytics & feedback (after first real users)
 
-- [ ] **Pick an analytics tool that doesn't break wallet privacy.** Plausible.io or Umami (self-hosted) — no IP retention, no user fingerprinting. Avoid Google Analytics for this use case.
+- [ ] **Get a Cloudflare Web Analytics token (FREE, 5 minutes).** Code is already wired up via `VITE_CF_ANALYTICS_TOKEN`; the beacon only loads when the env var is set, so the repo stays clean.
+  1. Go to https://dash.cloudflare.com/ → **Analytics & Logs** → **Web Analytics** → **Add a site**.
+  2. Choose **"With Cloudflare proxy"** if duster.guru DNS is on Cloudflare (recommended — zero JS overhead, data collected at the edge), or **"Without Cloudflare proxy"** if hosted elsewhere (loads the 5KB beacon).
+  3. Copy the token (looks like a 32-char hex string).
+  4. In `sweep-app/.env.local` add: `VITE_CF_ANALYTICS_TOKEN=<your-token>` and rebuild/redeploy.
+  5. Data shows up in the CF Web Analytics dashboard within a few minutes. No cookie banner needed — it's cookieless and IP-anonymised at the edge.
+- [ ] **Later: add Plausible** (~$9/mo cloud, or self-host free) if you need custom events ("connected wallet" / "completed sweep" / referral source). Cloudflare gives you page views and bounce rate; Plausible gives funnels and conversion tracking.
 - [ ] **Set up an error reporter.** Sentry's free tier is plenty for a launch. Hook into the existing exception filter on the backend + a frontend listener.
 - [ ] **Create a Discord/Telegram for user feedback.** Pin the FAQ; let users report broken sweeps. Crypto users prefer Discord over email.
 
