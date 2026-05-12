@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import CountUp from "./components/CountUp";
 import { aggregateLocal } from "./lib/history";
@@ -27,10 +27,9 @@ export default function Home() {
   // Pull device-wide local history aggregates (sum across every wallet
   // this browser has connected to). For first-time visitors the numbers
   // are 0 — copy below pivots to a "be among the first" framing.
-  const [stats, setStats] = useState({ totalUsd: 0, sweeps: 0, tokens: 0, rentSol: 0, wallets: 0 });
-  useEffect(() => {
-    setStats(aggregateLocal());
-  }, []);
+  // Lazy initializer runs once on mount; aggregateLocal() is safe to
+  // call synchronously (it guards localStorage access internally).
+  const [stats] = useState(() => aggregateLocal());
   const isFirstTime = stats.sweeps === 0;
 
   return (
@@ -77,10 +76,25 @@ export default function Home() {
             </div>
           </div>
 
-          <h1 className="mt-7 font-display text-[40px] sm:text-[48px] font-bold tracking-[0.32em]">
-            DUSTER
+          {/* Semantic H1 hidden visually but read by search engines and
+              screen readers. The wordmark below is just a visual brand
+              mark — Google ranks heading content, not letter-spaced
+              styled headings, so the real H1 carries the keyword phrase
+              users actually search for. */}
+          <h1 className="sr-only">
+            Duster — Solana wallet dust cleaner. Sweep dust tokens to USDC or SOL and reclaim rent in one signature.
           </h1>
 
+          <div
+            aria-hidden="true"
+            className="mt-7 font-display text-[40px] sm:text-[48px] font-bold tracking-[0.32em]"
+          >
+            DUSTER
+          </div>
+
+          {/* Tagline kept as <p>, not <h2> — the sr-only H1 above
+              carries semantic weight, and each section below uses its
+              own H2 for the heading hierarchy. */}
           <p className="mt-4 text-[18px] sm:text-[20px] leading-snug text-text-secondary max-w-[300px]">
             Find the hidden money<br />in your Solana wallet.
           </p>

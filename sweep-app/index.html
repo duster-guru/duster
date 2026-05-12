@@ -4,12 +4,16 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no" />
 
-    <!-- Primary identity -->
-    <title>Duster — Solana wallet dust cleaner · Reclaim hidden value in one signature</title>
-    <meta name="description" content="Duster scans your Solana wallet for dust tokens, swaps them to USDC or SOL via Jupiter, and closes empty token accounts to reclaim rent — all in one signature. Free, non-custodial, mobile-first." />
-    <meta name="keywords" content="solana dust cleaner, solana wallet cleaner, dust tokens, reclaim rent, sweep dust, swap small balances, jupiter aggregator, solana spl tokens, close token accounts, micro balance swap, web3 wallet cleanup" />
+    <!-- Primary identity — title keyword-first (Google ranks the first
+         words highest), under 70 chars so SERPs don't truncate it. -->
+    <title>Solana Wallet Dust Cleaner — Sweep to USDC in One Signature · Duster</title>
+    <!-- Description ~140 chars so the full snippet renders in mobile + desktop SERPs without "…" cutoff. -->
+    <meta name="description" content="Sweep dust tokens out of your Solana wallet to USDC or SOL and reclaim rent — all in one signature. Free, non-custodial, mobile-first." />
+    <meta name="keywords" content="solana dust cleaner, solana wallet cleaner, dust tokens, reclaim rent, sweep dust solana, swap small balances, jupiter aggregator, solana spl tokens, close token accounts, micro balance swap, web3 wallet cleanup, solana wallet rent, empty token account" />
     <meta name="author" content="Duster" />
     <link rel="canonical" href="https://duster.guru/" />
+    <link rel="alternate" hreflang="en" href="https://duster.guru/" />
+    <link rel="alternate" hreflang="x-default" href="https://duster.guru/" />
     <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
 
     <!-- Theme + mobile chrome -->
@@ -32,8 +36,8 @@
     <meta property="og:site_name" content="Duster" />
     <meta property="og:locale" content="en_US" />
     <meta property="og:url" content="https://duster.guru/" />
-    <meta property="og:title" content="Duster — Solana wallet dust cleaner" />
-    <meta property="og:description" content="Find the hidden money in your wallet. Swap dust tokens to USDC or SOL, reclaim rent, one signature." />
+    <meta property="og:title" content="Solana Wallet Dust Cleaner — Duster" />
+    <meta property="og:description" content="Sweep dust tokens out of your Solana wallet to USDC or SOL and reclaim rent — all in one signature." />
     <meta property="og:image" content="https://duster.guru/og-image.png" />
     <meta property="og:image:secure_url" content="https://duster.guru/og-image.png" />
     <meta property="og:image:type" content="image/png" />
@@ -43,8 +47,8 @@
 
     <!-- Twitter / X Cards -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Duster — Solana wallet dust cleaner" />
-    <meta name="twitter:description" content="Find the hidden money in your wallet. Swap dust tokens to USDC or SOL, reclaim rent, one signature." />
+    <meta name="twitter:title" content="Solana Wallet Dust Cleaner — Duster" />
+    <meta name="twitter:description" content="Sweep dust tokens out of your Solana wallet to USDC or SOL and reclaim rent — all in one signature." />
     <meta name="twitter:image" content="https://duster.guru/og-image.png" />
     <meta name="twitter:image:alt" content="Duster — feather-duster icon over the tagline Find the hidden money in your wallet" />
 
@@ -88,6 +92,123 @@
         "@type": "Organization",
         "name": "Duster"
       }
+    }
+    </script>
+
+    <!-- Organization — establishes the Duster brand entity in Google's
+         knowledge graph. Logo + sameAs link to GitHub for cross-source
+         verification. -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      "name": "Duster",
+      "url": "https://duster.guru/",
+      "logo": "https://duster.guru/favicon.svg",
+      "description": "Duster is a non-custodial Solana wallet dust cleaner that sweeps micro-balance SPL tokens to USDC or SOL in one signature and reclaims rent from emptied token accounts.",
+      "sameAs": [
+        "https://github.com/zozzozm/sweeper"
+      ]
+    }
+    </script>
+
+    <!-- HowTo — eligible for the "How to" rich result in Google search,
+         which renders the 3 numbered steps inline under the listing. -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "HowTo",
+      "name": "How to clean dust tokens from your Solana wallet",
+      "description": "Sweep dust SPL tokens out of your Solana wallet to USDC or SOL and reclaim locked rent — all in a single wallet signature.",
+      "totalTime": "PT2M",
+      "estimatedCost": {
+        "@type": "MonetaryAmount",
+        "currency": "USD",
+        "value": "0"
+      },
+      "step": [
+        {
+          "@type": "HowToStep",
+          "position": 1,
+          "name": "Connect a Solana wallet",
+          "text": "Open Duster and connect Phantom, Solflare, or Backpack. Duster never sees your seed phrase — the wallet stays on your device.",
+          "url": "https://duster.guru/app"
+        },
+        {
+          "@type": "HowToStep",
+          "position": 2,
+          "name": "Scan your wallet for dust",
+          "text": "Duster reads every SPL token account in your wallet, prices each one through the Jupiter aggregator, and surfaces tokens worth under $5 as sweepable dust.",
+          "url": "https://duster.guru/app"
+        },
+        {
+          "@type": "HowToStep",
+          "position": 3,
+          "name": "Clean and reclaim rent",
+          "text": "Pick USDC or SOL as the output. One wallet signature swaps all dust tokens, transfers the platform fee, and closes the emptied token accounts to refund the locked SOL rent.",
+          "url": "https://duster.guru/app"
+        }
+      ]
+    }
+    </script>
+
+    <!-- FAQPage — eligible for the FAQ rich result in Google search,
+         which renders expandable Q&A directly under the listing. Each
+         question must match a question visible to users on the page. -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Is Duster safe to use?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Duster only signs three kinds of on-chain instruction: a Jupiter swap, an SPL transfer for the platform fee, and a close-account call to refund rent. It never gets approval over tokens you don't sweep, and the wallet stays on your device. The frontend source is open to inspection."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "What is a Solana token account?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "On Solana, a wallet does not hold SPL tokens directly. Each token mint gets its own per-wallet account that costs roughly 0.002 SOL of rent to exist. Closing emptied token accounts refunds that rent to the wallet owner."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "What does Duster cost?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "A platform fee of 5% when the output is USDC, 4% when the output is SOL, plus the roughly $0.01 Solana network fee per transaction. Users keep the SOL rent refund from closed token accounts."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "What if a dust token cannot be routed?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "If Jupiter cannot find a swap route for a particular dust token, Duster skips it and keeps cleaning the rest. Skipped tokens stay in the wallet untouched."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Why is Duster mobile-first?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Most Solana wallets are mobile-native (Phantom, Solflare, and Backpack all have first-class mobile apps). Sweeping dust is a small, opportunistic task most users want to do from their phone."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "What is the DUST token?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "DUST is Duster's loyalty token, coming soon. Holders will pay the lowest swap fee tier (3% versus 5% for USDC) and qualify for monthly volume-based rewards."
+          }
+        }
+      ]
     }
     </script>
   </head>
