@@ -76,27 +76,25 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Semantic H1 hidden visually but read by search engines and
-              screen readers. The wordmark below is just a visual brand
-              mark — Google ranks heading content, not letter-spaced
-              styled headings, so the real H1 carries the keyword phrase
-              users actually search for. */}
-          <h1 className="sr-only">
-            Duster — Solana wallet dust cleaner. Sweep dust tokens to USDC or SOL and reclaim rent in one signature.
-          </h1>
-
-          <div
-            aria-hidden="true"
-            className="mt-7 font-display text-[40px] sm:text-[48px] font-bold tracking-[0.32em]"
-          >
+          {/* Visible H1 — Google was overriding our keyword-rich <title>
+              with just "Duster" because the only visible H1-like text
+              was the brand wordmark. Now there's a real visible H1 with
+              the descriptive phrase Google's title-rewriter respects.
+              "DUSTER" stays as a kicker above the H1; it's an
+              accessible label for the brand mark, not the H1 itself. */}
+          <div className="mt-7 font-display text-[36px] sm:text-[44px] font-bold tracking-[0.32em] text-text-secondary">
             DUSTER
           </div>
 
-          {/* Tagline kept as <p>, not <h2> — the sr-only H1 above
-              carries semantic weight, and each section below uses its
-              own H2 for the heading hierarchy. */}
-          <p className="mt-4 text-[18px] sm:text-[20px] leading-snug text-text-secondary max-w-[300px]">
-            Find the hidden money<br />in your Solana wallet.
+          <h1 className="mt-3 font-display text-[28px] sm:text-[34px] font-bold leading-tight tracking-tight max-w-[340px]">
+            Solana wallet dust cleaner
+          </h1>
+
+          {/* Tagline. Deliberately different prose from the meta
+              description so Google's SERP snippet doesn't read as
+              duplicate concatenation. */}
+          <p className="mt-3 text-[16px] sm:text-[18px] leading-snug text-text-secondary max-w-[320px]">
+            Sweep micro-balance tokens out of your wallet, swap them to USDC or SOL, and reclaim locked rent — one signature, non-custodial.
           </p>
 
           <Link
