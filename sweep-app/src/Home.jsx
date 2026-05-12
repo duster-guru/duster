@@ -45,8 +45,11 @@ export default function Home() {
       />
 
       <main className="relative z-10 mx-auto w-full max-w-[440px] px-5 pt-12 pb-10 sm:max-w-[640px] sm:px-8">
-        {/* ---- 1. HERO ---- */}
-        <section className="flex flex-col items-center text-center min-h-[88dvh] pt-4">
+        {/* ---- 1. HERO ----
+            min-h capped so the top of the next section peeks above the
+            fold on desktop. Without this, the hero filled the whole
+            viewport and visitors didn't realise the page continues. */}
+        <section className="flex flex-col items-center text-center min-h-[78dvh] pt-4">
           {/* Hexagon-framed favicon, matches the in-app splash */}
           <div
             className="w-[112px] h-[124px] flex items-center justify-center"
