@@ -1,4 +1,7 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import CountUp from "./components/CountUp";
+import { aggregateLocal } from "./lib/history";
 
 /**
  * Marketing homepage at `/`. Mobile-first single column that scrolls,
@@ -9,14 +12,27 @@ import { Link } from "react-router-dom";
  *   - just Tailwind + the favicon + plain SVG dust motes for ambient feel
  *
  * Sections (in scroll order):
- *   1. Hero      — logo, headline, primary CTA, trust strip
- *   2. Dust       — what dust is + why wallets accumulate it
- *   3. How it works — connect / scan / clean three-step
- *   4. Why Duster — feature row (one signature, mobile, non-custodial, transparent)
- *   5. FAQ        — six core questions
- *   6. Footer     — duster.guru, version pill, links
+ *   1. Hero          — logo, headline, primary CTA, trust strip
+ *   2. Stats         — your-contribution OR "be the first" framing
+ *   3. Dust          — what dust is + why wallets accumulate it
+ *   4. How it works  — connect / scan / clean three-step
+ *   5. Powered by    — Solana / Jupiter / Helius / wallets
+ *   6. Partnerships  — coming-soon integration roadmap
+ *   7. Trust         — open source, non-custodial, on-chain verifiable
+ *   8. Why Duster    — feature row (one signature, mobile, non-custodial, transparent)
+ *   9. FAQ           — six core questions
+ *  10. Final CTA + footer
  */
 export default function Home() {
+  // Pull device-wide local history aggregates (sum across every wallet
+  // this browser has connected to). For first-time visitors the numbers
+  // are 0 — copy below pivots to a "be among the first" framing.
+  const [stats, setStats] = useState({ totalUsd: 0, sweeps: 0, tokens: 0, rentSol: 0, wallets: 0 });
+  useEffect(() => {
+    setStats(aggregateLocal());
+  }, []);
+  const isFirstTime = stats.sweeps === 0;
+
   return (
     <div className="min-h-dvh w-full bg-void text-text-primary">
       {/* ambient gradient — pure CSS, no JS particles */}
@@ -93,7 +109,79 @@ export default function Home() {
           </div>
         </section>
 
-        {/* ---- 2. WHAT'S DUST ---- */}
+        {/* ---- 2. STATS — your contribution OR be-the-first ---- */}
+        <section className="mt-16 sm:mt-24">
+          <div className="flex items-center justify-between">
+            <h2 className="text-[11px] uppercase tracking-[0.18em] font-bold text-sweep">
+              {isFirstTime ? "Be among the first" : "Your contribution"}
+            </h2>
+            <span className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-text-muted font-mono">
+              <span
+                className="w-1.5 h-1.5 rounded-full bg-success"
+                style={{ boxShadow: "0 0 6px #34E1A2" }}
+              />
+              live
+            </span>
+          </div>
+          <p className="mt-3 text-[14px] text-text-secondary leading-snug">
+            {isFirstTime
+              ? "Cleaning hasn't started on this device yet — Duster is fresh on Solana mainnet. Connect a wallet and you'll be one of the first sweepers."
+              : `Across ${stats.wallets} wallet${stats.wallets === 1 ? "" : "s"} on this device.`}
+          </p>
+
+          <div className="mt-5 grid grid-cols-3 gap-2">
+            {[
+              {
+                label: "Money found",
+                value: stats.totalUsd,
+                prefix: "$",
+                decimals: 2,
+                color: "#7CFFB2",
+                glow: "0 0 12px rgba(124,255,178,0.4)",
+              },
+              {
+                label: "Dust swept",
+                value: stats.tokens,
+                prefix: "",
+                decimals: 0,
+                color: "#5B8CFF",
+                glow: "0 0 12px rgba(91,140,255,0.4)",
+              },
+              {
+                label: "SOL unlocked",
+                value: stats.rentSol,
+                prefix: "",
+                decimals: 4,
+                color: "#FF6EE0",
+                glow: "0 0 12px rgba(255,110,224,0.4)",
+              },
+            ].map((s) => (
+              <div
+                key={s.label}
+                className="rounded-md p-3 flex flex-col items-center text-center"
+                style={{
+                  background: "rgba(255,255,255,0.025)",
+                  border: "1px solid rgba(255,255,255,0.08)",
+                }}
+              >
+                <div
+                  className="font-display font-bold text-[20px] sm:text-[22px] tabular-nums leading-none"
+                  style={{ color: s.color, textShadow: s.glow }}
+                >
+                  <CountUp to={s.value} prefix={s.prefix} decimals={s.decimals} duration={1200} />
+                </div>
+                <div className="mt-1.5 text-[10px] uppercase tracking-wider text-text-muted font-mono leading-tight">
+                  {s.label}
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="mt-3 text-[10px] uppercase tracking-wider text-text-muted text-center font-mono">
+            since beta launch · 2026-05-12 · network-wide stats coming with v0.2
+          </div>
+        </section>
+
+        {/* ---- 3. WHAT'S DUST ---- */}
         <section className="mt-16 sm:mt-24">
           <h2 className="text-[11px] uppercase tracking-[0.18em] font-bold text-sweep">
             The hidden money
@@ -163,7 +251,152 @@ export default function Home() {
           </ol>
         </section>
 
-        {/* ---- 4. WHY DUSTER ---- */}
+        {/* ---- 5. POWERED BY — legitimacy via the infra we depend on ---- */}
+        <section className="mt-16 sm:mt-24">
+          <h2 className="text-[11px] uppercase tracking-[0.18em] font-bold text-sweep">
+            Powered by
+          </h2>
+          <p className="mt-2 text-[14px] text-text-secondary leading-snug">
+            Duster doesn't reinvent infrastructure. Every swap routes through battle-tested protocols and RPC providers the Solana ecosystem already trusts.
+          </p>
+          <div className="mt-5 grid grid-cols-3 gap-2">
+            {[
+              { name: "Solana", role: "L1 chain", color: "#9945FF" },
+              { name: "Jupiter", role: "Swap routing", color: "#FF6EE0" },
+              { name: "Helius", role: "RPC + indexing", color: "#47bfff" },
+              { name: "Phantom", role: "Wallet", color: "#ab9ff2" },
+              { name: "Solflare", role: "Wallet", color: "#fc8332" },
+              { name: "Backpack", role: "Wallet", color: "#e33e3f" },
+            ].map((p) => (
+              <div
+                key={p.name}
+                className="rounded-md p-3 text-center"
+                style={{
+                  background: "rgba(255,255,255,0.025)",
+                  border: "1px solid rgba(255,255,255,0.06)",
+                }}
+              >
+                <div
+                  className="font-display font-bold text-[13px]"
+                  style={{ color: p.color }}
+                >
+                  {p.name}
+                </div>
+                <div className="text-[10px] mt-0.5 text-text-muted font-mono uppercase tracking-wider">
+                  {p.role}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* ---- 6. PARTNERSHIPS — coming soon ---- */}
+        <section className="mt-16 sm:mt-24">
+          <div className="flex items-center justify-between">
+            <h2 className="text-[11px] uppercase tracking-[0.18em] font-bold text-magenta">
+              Partnerships
+            </h2>
+            <span className="text-[10px] uppercase tracking-wider text-magenta/80 font-mono font-bold">
+              In progress
+            </span>
+          </div>
+          <h3 className="mt-3 font-display text-[22px] sm:text-[26px] font-bold leading-tight">
+            Native integrations rolling out.
+          </h3>
+          <p className="mt-3 text-[14px] text-text-secondary leading-snug">
+            We're talking to wallet teams and ecosystem directories about embedding Duster as a one-tap "clean my dust" action. Drop your wallet in the meantime — these only make Duster faster to reach, not different to use.
+          </p>
+          <ul className="mt-5 flex flex-col gap-2.5">
+            {[
+              { tier: "Wallet directory", name: "Phantom Discover", status: "Submitted" },
+              { tier: "Wallet directory", name: "Solflare Marketplace", status: "Drafting" },
+              { tier: "Ecosystem listing", name: "awesome-solana", status: "PR open" },
+              { tier: "Ecosystem listing", name: "SolanaCompass", status: "Soon" },
+              { tier: "Dapp discovery", name: "DappRadar", status: "Soon" },
+              { tier: "Embed", name: "Native wallet integration", status: "Exploring" },
+            ].map((p) => (
+              <li
+                key={p.name}
+                className="flex items-center justify-between gap-3 rounded-md px-3 py-2.5"
+                style={{
+                  background: "rgba(255,110,224,0.05)",
+                  border: "1px solid rgba(255,110,224,0.15)",
+                }}
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="font-display font-semibold text-[13px] text-text-primary truncate">
+                    {p.name}
+                  </div>
+                  <div className="text-[10px] text-text-muted font-mono uppercase tracking-wider mt-0.5">
+                    {p.tier}
+                  </div>
+                </div>
+                <span
+                  className="text-[10px] uppercase tracking-wider font-bold font-mono px-2 py-1 rounded shrink-0"
+                  style={{
+                    background: "rgba(255,110,224,0.12)",
+                    color: "#FF6EE0",
+                    border: "1px solid rgba(255,110,224,0.30)",
+                  }}
+                >
+                  {p.status}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        {/* ---- 7. TRUST — security signals ---- */}
+        <section className="mt-16 sm:mt-24">
+          <h2 className="text-[11px] uppercase tracking-[0.18em] font-bold text-sweep">
+            Built to be checkable
+          </h2>
+          <h3 className="mt-3 font-display text-[22px] sm:text-[26px] font-bold leading-tight">
+            Nothing happens you can't verify.
+          </h3>
+          <ul className="mt-5 flex flex-col gap-3">
+            {[
+              {
+                k: "Non-custodial",
+                v: "Your wallet stays on your device. Duster never sees your seed, your private key, or any token you didn't ask us to sweep.",
+              },
+              {
+                k: "Open source frontend",
+                v: "Every line of UI logic is public on GitHub. Read what Duster will sign before you sign it.",
+              },
+              {
+                k: "On-chain transparent",
+                v: "Every sweep produces a Solana transaction signature you can paste into Solscan. Balance deltas on the success screen are read directly from the chain, not estimated.",
+              },
+              {
+                k: "Routing audited",
+                v: "Swaps run through Jupiter, the most-used Solana aggregator. Jupiter's contracts have been audited by OtterSec, Halborn, and several others.",
+              },
+              {
+                k: "Bug bounty",
+                v: "Coming soon — pay-to-disclose program for whitehats once we're out of beta. Until then, sensible disclosures earn a public thank-you.",
+              },
+            ].map((t) => (
+              <li
+                key={t.k}
+                className="rounded-md p-4"
+                style={{
+                  background: "rgba(124,255,178,0.04)",
+                  border: "1px solid rgba(124,255,178,0.18)",
+                }}
+              >
+                <div className="font-display font-bold text-[13px] text-sweep">
+                  {t.k}
+                </div>
+                <div className="text-[13px] text-text-secondary leading-snug mt-1.5">
+                  {t.v}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        {/* ---- 8. WHY DUSTER ---- */}
         <section className="mt-16 sm:mt-24">
           <h2 className="text-[11px] uppercase tracking-[0.18em] font-bold text-sweep">
             Why Duster

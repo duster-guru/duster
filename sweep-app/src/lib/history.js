@@ -76,6 +76,39 @@ export function clearHistory(pubkey) {
 }
 
 /**
+ * Aggregate sweep history across every wallet this device has ever
+ * connected. Used by the marketing homepage to show a real, honest
+ * "your contribution" stat — far more engaging than $0/N/0 zeros for
+ * returning visitors, and explicit "be the first" framing for new ones.
+ *
+ * Returns: { totalUsd, sweeps, tokens, rentSol, wallets }
+ */
+export function aggregateLocal() {
+  const out = { totalUsd: 0, sweeps: 0, tokens: 0, rentSol: 0, wallets: 0 };
+  if (typeof localStorage === "undefined") return out;
+  const seen = new Set();
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key?.startsWith(KEY_PREFIX)) continue;
+      seen.add(key.slice(KEY_PREFIX.length));
+      let records;
+      try { records = JSON.parse(localStorage.getItem(key) || "[]"); }
+      catch { continue; }
+      if (!Array.isArray(records)) continue;
+      for (const r of records) {
+        out.totalUsd += r.totalUnlockedUsd || 0;
+        out.sweeps   += 1;
+        out.tokens   += r.tokenCount || 0;
+        out.rentSol  += r.rentSol || 0;
+      }
+    }
+  } catch { /* ignore */ }
+  out.wallets = seen.size;
+  return out;
+}
+
+/**
  * Aggregate counters derived from a record list. Cheap; called on every
  * Dashboard render and re-derived rather than separately persisted so
  * the two can never drift.
